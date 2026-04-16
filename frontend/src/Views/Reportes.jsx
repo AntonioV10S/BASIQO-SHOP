@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 function Reportes() {
+  const API_URL = 'https://basiqo-shop.onrender.com';
   const [stats, setStats] = useState({ totalVentas: 0, totalPedidos: 0 });
   const [pedidos, setPedidos] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:3000/api/productos/reportes')
+    axios.get('${API_URL}/api/productos/reportes')
       .then(res => setStats(res.data))
       .catch(err => console.error(err));
 
-    axios.get('http://localhost:3000/api/productos/historial')
+    axios.get('${API_URL}/api/productos/historial')
       .then(res => setPedidos(res.data))
       .catch(err => console.error(err));
   }, []);

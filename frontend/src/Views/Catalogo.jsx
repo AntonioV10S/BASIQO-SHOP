@@ -2,22 +2,27 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const WHATSAPP_NUMBER = '593979274459';
-const ENVIO_NACIONAL = 6.00;
+// Usamos la URL de tu Render para todas las llamadas
+const API_URL = 'https://basiqo-shop.onrender.com';
 
 function Catalogo() {
   const [productos, setProductos] = useState([]);
   const [scrolled, setScrolled] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  const [seleccion, setSeleccion] = useState({ talla: '', color: '' });
+  // IMPORTANTE: cantidad inicial 1
+  const [seleccion, setSeleccion] = useState({ talla: '', color: '', cantidad: 1 });
   const [carrito, setCarrito] = useState([]);
   const [direccionFinal, setDireccionFinal] = useState('');
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
-    axios.get('http://localhost:3000/api/productos')
+    
+    // Llamada corregida a tu API en Render
+    axios.get(`${API_URL}/api/productos`) 
       .then(res => setProductos(res.data))
       .catch(err => console.error(err));
+      
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -30,40 +35,35 @@ function Catalogo() {
 
     setCarrito([...carrito, ...productosParaAgregar]);
     setProductoSeleccionado(null);
-    setSeleccion({ talla: '', color: '', cantidad: 1 }); // Reset
+    setSeleccion({ talla: '', color: '', cantidad: 1 });
   };
 
-
-  // En tu Catalogo.jsx, reemplaza tu función enviarPedidoWhatsApp por esta:
   const confirmarPedidoYEnviar = async () => {
-    // 1. Calcular el total internamente antes de enviar
     const subtotal = carrito.reduce((acc, p) => acc + parseFloat(p.precio), 0);
     const costoEnvio = direccionFinal.toLowerCase().includes('calceta') ? 0 : 6.00;
     const total = subtotal + costoEnvio;
 
     try {
-      // 2. Enviamos el carrito, el total calculado y la dirección
-      const res = await axios.post('http://localhost:3000/api/productos/confirmar-pedido', {
+      // POST corregido hacia tu servidor en Render
+      const res = await axios.post(`${API_URL}/api/productos/confirmar-pedido`, {
         productos: carrito,
-        total: total,           // <-- Esto es vital para tu reporte
-        direccion: direccionFinal // <-- Esto es vital para tu historial
+        total: total,
+        direccion: direccionFinal
       });
 
-      if (res.status === 201) {
-        // 3. Armamos el mensaje para WhatsApp
+      if (res.status === 200 || res.status === 201) {
         let mensaje = `*PEDIDO CONFIRMADO - BASIQO*%0A%0A`;
         carrito.forEach((p, i) => {
           mensaje += `${i + 1}. ${p.nombre} (${p.talla}, ${p.color}) - $${p.precio}%0A`;
         });
-        mensaje += `%0A*TOTAL A CANCELAR:* $${total.toFixed(2)}`;
+        mensaje += `%0A*TOTAL A PAGAR:* $${total.toFixed(2)}`;
         mensaje += `%0A%0A*Dirección:* ${direccionFinal}`;
 
         window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensaje}`, '_blank');
 
-        // 4. Limpiamos estado
         setCarrito([]);
         setDireccionFinal('');
-        window.location.reload(); // Recargamos para que el stock se vea actualizado al instante
+        window.location.reload();
       }
     } catch (err) {
       alert("Lo sentimos, uno de los productos ya no está disponible.");

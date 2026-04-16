@@ -25,11 +25,11 @@ function Admin({ setAutenticado }) {
     navigate('/login');
   };
 
-  const fetchProductos = () => {
-    axios.get(`http://localhost:3000/api/productos?t=${new Date().getTime()}`)
-      .then(res => setProductos(res.data))
-      .catch(err => console.error(err));
-  };
+const fetchProductos = () => {
+  axios.get(`${API_URL}/api/productos?t=${new Date().getTime()}`)
+    .then(res => setProductos(res.data))
+    .catch(err => console.error(err));
+};
 
   useEffect(() => { fetchProductos(); }, []);
 
@@ -54,6 +54,8 @@ function Admin({ setAutenticado }) {
     setModalAbierto(true);
   };
 
+  const API_URL = 'https://basiqo-shop.onrender.com';
+  
   const guardarProducto = async (e) => {
     e.preventDefault();
     setCargando(true);
@@ -66,8 +68,8 @@ function Admin({ setAutenticado }) {
     if (imagen) formData.append('foto', imagen);
 
     try {
-      if (editandoId) await axios.put(`http://localhost:3000/api/productos/${editandoId}`, formData);
-      else await axios.post('http://localhost:3000/api/productos', formData);
+      if (editandoId) await axios.put(`${API_URL}/api/productos/${editandoId}`, formData);
+      else await axios.post('${API_URL}/api/productos', formData);
       toast.success('Guardado correctamente');
       fetchProductos();
       setModalAbierto(false);
