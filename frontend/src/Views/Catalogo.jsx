@@ -38,39 +38,29 @@ function Catalogo() {
     setSeleccion({ talla: '', color: '', cantidad: 1 });
   };
 
-  const confirmarPedidoYEnviar = async () => {
+ const confirmarPedidoYEnviar = async () => {
     const subtotal = carrito.reduce((acc, p) => acc + parseFloat(p.precio), 0);
     const costoEnvio = direccionFinal.toLowerCase().includes('calceta') ? 0 : 6.00;
     const total = subtotal + costoEnvio;
 
     try {
-      // POST corregido hacia tu servidor en Render
+      // IMPORTANTE: Asegúrate que los nombres aquí coincidan con el req.body del Backend
       const res = await axios.post(`${API_URL}/api/productos/confirmar-pedido`, {
         productos: carrito,
-        total: total,
-        direccion: direccionFinal
+        total: total,        // Esto debe coincidir con req.body.total
+        direccion: direccionFinal // Esto debe coincidir con req.body.direccion
       });
 
       if (res.status === 200 || res.status === 201) {
-        let mensaje = `*PEDIDO CONFIRMADO - BASIQO*%0A%0A`;
-        carrito.forEach((p, i) => {
-          mensaje += `${i + 1}. ${p.nombre} (${p.talla}, ${p.color}) - $${p.precio}%0A`;
-        });
-        mensaje += `%0A*TOTAL A PAGAR:* $${total.toFixed(2)}`;
-        mensaje += `%0A%0A*Dirección:* ${direccionFinal}`;
-
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensaje}`, '_blank');
-
-        setCarrito([]);
-        setDireccionFinal('');
-        window.location.reload();
+        // ... (resto de tu lógica de mensaje de WhatsApp)
       }
     } catch (err) {
-      alert("Lo sentimos, uno de los productos ya no está disponible.");
+      // AQUÍ ESTÁ EL PROBLEMA: El alert aparece incluso si el error es del servidor
+      console.error("Error completo:", err.response?.data); 
+      alert("Error al procesar: " + (err.response?.data?.error || "Revisa los logs de Render"));
       window.location.reload();
     }
   };
-
   return (
     <div className="min-h-screen bg-[#f3f2ed] text-stone-900 font-sans pb-32">
 

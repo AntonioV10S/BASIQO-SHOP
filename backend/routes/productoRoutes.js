@@ -35,11 +35,19 @@ router.get('/historial', async (req, res) => {
 
 // RUTA UNIFICADA: Descuenta stock Y guarda el pedido
 router.post('/confirmar-pedido', async (req, res) => {
-    try {
-        const { productos } = req.body;
+    // 1. Log para ver qué llega exactamente desde tu Frontend
+    console.log("Cuerpo recibido:", req.body); 
 
-        // Validar stock total solicitado
-        // Agrupamos por ID para contar cuántas unidades pide en total del mismo producto
+    try {
+        // Extraemos las variables y nos aseguramos de que existan
+        const { productos, total, direccion } = req.body;
+
+        // Validamos que existan
+        if (total === undefined || direccion === undefined) {
+            return res.status(400).json({ error: "Faltan datos obligatorios (total o direccion)" });
+        }
+
+        // --- Lógica de Stock ---
         const conteo = {};
         productos.forEach(p => conteo[p._id] = (conteo[p._id] || 0) + 1);
 
@@ -50,26 +58,27 @@ router.post('/confirmar-pedido', async (req, res) => {
             }
         }
 
-        // Si todo está bien, descontamos
+        // --- Descontar stock ---
         for (const item of productos) {
             await Producto.findByIdAndUpdate(item._id, { $inc: { stock: -1 } });
         }
 
-        // 3. GUARDAR EL PEDIDO (Esto es lo que hace que tu reporte funcione)
+        // --- Guardar Pedido ---
         const nuevoPedido = new Pedido({
             productos,
-            total: Number(total), // Convertimos a número para que el $sum funcione
-            direccion,
+            total: Number(total), 
+            direccion: direccion,
             fecha: new Date()
         });
         await nuevoPedido.save();
 
-        res.status(201).json({ message: "Pedido registrado y stock actualizado" });
+        res.status(201).json({ message: "Pedido registrado" });
+
     } catch (error) {
+        console.error("Error en servidor:", error);
         res.status(500).json({ error: error.message });
     }
 });
-
 // Guardar pedido (se llama desde el botón Finalizar del frontend)
 // Ruta para registrar el pedido y descontar stock
 router.post('/pedido', async (req, res) => {
