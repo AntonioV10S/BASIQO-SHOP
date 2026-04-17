@@ -35,16 +35,16 @@ router.get('/historial', async (req, res) => {
 
 // RUTA UNIFICADA: Descuenta stock Y guarda el pedido
 router.post('/confirmar-pedido', async (req, res) => {
-    // 1. Log para ver qué llega exactamente desde tu Frontend
-    console.log("Cuerpo recibido:", req.body); 
+    // 1. Log para verificar qué llega desde el Frontend
+    console.log("Cuerpo recibido desde el frontend:", req.body); 
 
     try {
-        // Extraemos las variables y nos aseguramos de que existan
+        // 2. Extraer TODAS las variables del body. SI NO ESTÁN AQUÍ, NO EXISTEN.
         const { productos, total, direccion } = req.body;
 
-        // Validamos que existan
+        // 3. Validación de seguridad
         if (total === undefined || direccion === undefined) {
-            return res.status(400).json({ error: "Faltan datos obligatorios (total o direccion)" });
+            return res.status(400).json({ error: "Faltan datos obligatorios: total o dirección" });
         }
 
         // --- Lógica de Stock ---
@@ -72,7 +72,7 @@ router.post('/confirmar-pedido', async (req, res) => {
         });
         await nuevoPedido.save();
 
-        res.status(201).json({ message: "Pedido registrado" });
+        res.status(201).json({ message: "Pedido registrado correctamente" });
 
     } catch (error) {
         console.error("Error en servidor:", error);
