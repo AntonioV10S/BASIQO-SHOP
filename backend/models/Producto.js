@@ -4,7 +4,7 @@ const productoSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   precio: { type: Number, required: true },
   descripcion: { type: String, default: "Camiseta de polialgodón BASIQO" },
-  foto: { type: String }, // Aquí irá el link de la imagen
+  foto: { type: [String], default: [] }, // Aquí irá el link de la imagen
   tallas: {
     type: [String],
     enum: ['S', 'M', 'L', 'XL'], // Solo permite estas opciones

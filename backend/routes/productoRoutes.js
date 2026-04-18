@@ -6,7 +6,7 @@ const cloudinary = require('cloudinary').v2;
 const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 
-// Configuración de Cloudinary
+
 cloudinary.config({
     cloud_name: 'dmzmhugvd',
     api_key: '962417948158365',
@@ -23,7 +23,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// Obtener historial completo para mostrar en la tabla
+
 router.get('/historial', async (req, res) => {
     try {
         const historial = await Pedido.find().sort({ fecha: -1 });
@@ -33,21 +33,17 @@ router.get('/historial', async (req, res) => {
     }
 });
 
-// RUTA UNIFICADA: Descuenta stock Y guarda el pedido
+
 router.post('/confirmar-pedido', async (req, res) => {
-    // 1. Log para verificar qué llega desde el Frontend
     console.log("Cuerpo recibido desde el frontend:", req.body); 
 
     try {
-        // 2. Extraer TODAS las variables del body. SI NO ESTÁN AQUÍ, NO EXISTEN.
         const { productos, total, direccion } = req.body;
 
-        // 3. Validación de seguridad
         if (total === undefined || direccion === undefined) {
             return res.status(400).json({ error: "Faltan datos obligatorios: total o dirección" });
         }
 
-        // --- Lógica de Stock ---
         const conteo = {};
         productos.forEach(p => conteo[p._id] = (conteo[p._id] || 0) + 1);
 
@@ -58,12 +54,10 @@ router.post('/confirmar-pedido', async (req, res) => {
             }
         }
 
-        // --- Descontar stock ---
         for (const item of productos) {
             await Producto.findByIdAndUpdate(item._id, { $inc: { stock: -1 } });
         }
 
-        // --- Guardar Pedido ---
         const nuevoPedido = new Pedido({
             productos,
             total: Number(total), 
@@ -79,28 +73,21 @@ router.post('/confirmar-pedido', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// Guardar pedido (se llama desde el botón Finalizar del frontend)
-// Ruta para registrar el pedido y descontar stock
+
+
 router.post('/pedido', async (req, res) => {
     try {
-        const { productos } = req.body; // 'productos' es el array que viene del carrito
+        const { productos } = req.body; 
 
         for (const item of productos) {
-            // Buscamos el producto en la base de datos
             const prod = await Producto.findById(item._id);
             
             if (!prod || prod.stock < 1) {
                 return res.status(400).json({ error: `El producto ${item.nombre} ya no tiene stock.` });
             }
-
-            // Descontamos 1 unidad del stock
             prod.stock -= 1;
             await prod.save();
         }
-
-        // Aquí guardas el pedido en la colección 'Pedido' (como vimos antes)
-        // const nuevoPedido = new Pedido(req.body);
-        // await nuevoPedido.save();
 
         res.status(201).json({ message: "Pedido registrado y stock actualizado" });
     } catch (error) {
@@ -133,7 +120,7 @@ router.get('/', async (req, res) => {
 });
 
 // 2. RUTA POST (Crear producto)
-router.post('/', upload.single('foto'), async (req, res) => {
+router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
 
@@ -146,7 +133,7 @@ router.post('/', upload.single('foto'), async (req, res) => {
             stock: Number(stock),
             colores: coloresArray.map(c => c.toUpperCase()),
             tallas: tallasArray.map(t => t.toUpperCase()),
-            foto: req.file ? req.file.path : null
+            foto: req.files ? req.files.path : null
         });
 
         await producto.save();
@@ -156,8 +143,8 @@ router.post('/', upload.single('foto'), async (req, res) => {
     }
 });
 
-// 3. RUTA PUT (Actualizar producto - Corregida y ÚNICA)
-router.put('/:id', upload.single('foto'), async (req, res) => {
+
+router.put('/:id', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
         const productoExistente = await Producto.findById(req.params.id);
@@ -173,7 +160,7 @@ router.put('/:id', upload.single('foto'), async (req, res) => {
             stock: stock !== undefined ? Number(stock) : productoExistente.stock,
             colores: typeof colores === 'string' ? JSON.parse(colores) : colores,
             tallas: typeof tallas === 'string' ? JSON.parse(tallas) : tallas,
-            foto: req.file ? req.file.path : productoExistente.foto
+            foto: req.files ? req.files.path : productoExistente.foto
         };
 
         const productoActualizado = await Producto.findByIdAndUpdate(
