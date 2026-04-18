@@ -67,7 +67,7 @@ function Admin({ setAutenticado }) {
     formData.append('tallas', JSON.stringify(nuevo.tallas));
     if (imagen && imagen.length > 0) {
     for (let i = 0; i < imagen.length; i++) {
-      formData.append('fotos', imagen[i]); // "fotos" (plural)
+      formData.append('foto', imagen[i]); // "fotos" (plural)
     }
   }
 

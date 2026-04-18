@@ -35,7 +35,7 @@ router.get('/historial', async (req, res) => {
 
 
 router.post('/confirmar-pedido', async (req, res) => {
-    console.log("Cuerpo recibido desde el frontend:", req.body); 
+    console.log("Cuerpo recibido desde el frontend:", req.body);
 
     try {
         const { productos, total, direccion } = req.body;
@@ -60,7 +60,7 @@ router.post('/confirmar-pedido', async (req, res) => {
 
         const nuevoPedido = new Pedido({
             productos,
-            total: Number(total), 
+            total: Number(total),
             direccion: direccion,
             fecha: new Date()
         });
@@ -77,11 +77,11 @@ router.post('/confirmar-pedido', async (req, res) => {
 
 router.post('/pedido', async (req, res) => {
     try {
-        const { productos } = req.body; 
+        const { productos } = req.body;
 
         for (const item of productos) {
             const prod = await Producto.findById(item._id);
-            
+
             if (!prod || prod.stock < 1) {
                 return res.status(400).json({ error: `El producto ${item.nombre} ya no tiene stock.` });
             }
@@ -124,7 +124,7 @@ router.get('/', async (req, res) => {
 router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
-        
+
         // Convertimos archivos a un array de rutas
         const rutasFotos = req.files ? req.files.map(file => file.path) : [];
 
@@ -151,8 +151,8 @@ router.put('/:id', upload.array('foto', 5), async (req, res) => {
         const productoExistente = await Producto.findById(req.params.id);
 
         // Si se subieron fotos nuevas, usamos esas. Si no, mantenemos las existentes.
-        const nuevasFotos = req.files && req.files.length > 0 
-            ? req.files.map(f => f.path) 
+        const nuevasFotos = req.files && req.files.length > 0
+            ? req.files.map(f => f.path)
             : productoExistente.foto;
 
         const datosActualizados = {
@@ -185,5 +185,11 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
+router.use((err, req, res, next) => {
+    if (err) {
+        console.error("¡ERROR DE MULTER!: ", err.message);
+        return res.status(500).json({ error: "Error en el middleware de archivos: " + err.message });
+    }
+    next();
+});
 module.exports = router;
