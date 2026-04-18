@@ -120,20 +120,21 @@ router.get('/', async (req, res) => {
 });
 
 // 2. RUTA POST (Crear producto)
+// POST: Crear producto
 router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
-
-        const coloresArray = typeof colores === 'string' ? JSON.parse(colores) : colores;
-        const tallasArray = typeof tallas === 'string' ? JSON.parse(tallas) : tallas;
+        
+        // Convertimos archivos a un array de rutas
+        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
 
         const producto = new Producto({
             nombre,
             precio,
             stock: Number(stock),
-            colores: coloresArray.map(c => c.toUpperCase()),
-            tallas: tallasArray.map(t => t.toUpperCase()),
-            foto: req.files ? req.files.path : null
+            colores: JSON.parse(colores),
+            tallas: JSON.parse(tallas),
+            foto: rutasFotos // Aquí guardamos el arreglo de rutas en la variable 'foto'
         });
 
         await producto.save();
@@ -143,35 +144,34 @@ router.post('/', upload.array('foto', 5), async (req, res) => {
     }
 });
 
-
+// PUT: Actualizar producto
 router.put('/:id', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
         const productoExistente = await Producto.findById(req.params.id);
 
-        if (!productoExistente) {
-            return res.status(404).json({ error: "Producto no encontrado" });
-        }
+        // Si se subieron fotos nuevas, usamos esas. Si no, mantenemos las existentes.
+        const nuevasFotos = req.files && req.files.length > 0 
+            ? req.files.map(f => f.path) 
+            : productoExistente.foto;
 
         const datosActualizados = {
             nombre,
             precio,
-            // Si el stock viene en el body, lo convertimos a número, sino mantenemos el anterior
-            stock: stock !== undefined ? Number(stock) : productoExistente.stock,
+            stock: Number(stock),
             colores: typeof colores === 'string' ? JSON.parse(colores) : colores,
             tallas: typeof tallas === 'string' ? JSON.parse(tallas) : tallas,
-            foto: req.files ? req.files.path : productoExistente.foto
+            foto: nuevasFotos
         };
 
         const productoActualizado = await Producto.findByIdAndUpdate(
             req.params.id,
             { $set: datosActualizados },
-            { returnDocument: 'after' } // Eliminamos el warning de Mongoose
+            { new: true }
         );
 
         res.json(productoActualizado);
     } catch (error) {
-        console.error("Error en PUT:", error);
         res.status(500).json({ error: error.message });
     }
 });
