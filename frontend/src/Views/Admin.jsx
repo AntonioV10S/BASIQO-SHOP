@@ -73,7 +73,7 @@ function Admin({ setAutenticado }) {
 
     try {
       if (editandoId) await axios.put(`${API_URL}/api/productos/${editandoId}`, formData);
-      else await axios.post('${API_URL}/api/productos', formData);
+      else await axios.post(`${API_URL}/api/productos`, formData);
       toast.success('Guardado correctamente');
       fetchProductos();
       setModalAbierto(false);
