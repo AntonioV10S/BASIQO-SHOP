@@ -15,12 +15,7 @@ const productoSchema = new mongoose.Schema({
     enum: ['BLANCO', 'NEGRO', 'AZUL NAVY', 'BEIGE', 'VINO', 'VERDE MILITAR'],
     required: true
   },
-  stock: {
-    S: { type: Number, default: 0 },
-    M: { type: Number, default: 0 },
-    L: { type: Number, default: 0 },
-    XL: { type: Number, default: 0 }
-  }
+  stock: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Producto', productoSchema);

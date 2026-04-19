@@ -33,27 +33,48 @@ router.get('/', async (req, res) => {
 });
 
 // --- POST: CREAR ---
-router.post('/', upload.array('foto', 5), async (req, res) => {
+router.post('/confirmar-pedido', async (req, res) => {
     try {
-        const { nombre, precio, stock, colores, tallas } = req.body;
-        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
+        const { productos, total, direccion } = req.body;
+        
+        if (!productos || productos.length === 0) 
+            return res.status(400).json({ error: "Carrito vacío" });
 
-        // Validación de seguridad para JSON.parse
-        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
+        // 1. Verificación y actualización atómica
+        // Usamos un bucle para procesar cada producto uno por uno
+        for (const item of productos) {
+            // El truco está en buscar el producto Y verificar que su stock sea >= cantidad requerida
+            const resultado = await Producto.findOneAndUpdate(
+                { 
+                    _id: item._id, 
+                    [`stock.${item.talla}`]: { $gte: item.cantidad } // Solo encuentra si hay stock
+                },
+                { 
+                    $inc: { [`stock.${item.talla}`]: -item.cantidad } // Resta la cantidad
+                }
+            );
 
-        const producto = new Producto({
-            nombre,
-            precio,
-            stock: Number(stock),
-            colores: parseData(colores),
-            tallas: parseData(tallas),
-            foto: rutasFotos
+            // Si resultado es null, significa que no encontró el producto con stock suficiente
+            if (!resultado) {
+                return res.status(400).json({ 
+                    error: `Stock insuficiente para ${item.nombre} en talla ${item.talla}` 
+                });
+            }
+        }
+
+        // 2. Si todo salió bien, guardamos el pedido
+        const nuevoPedido = new Pedido({ 
+            productos, 
+            total, 
+            direccion, 
+            fecha: new Date() 
         });
+        
+        await nuevoPedido.save();
+        res.status(201).json({ message: "Pedido confirmado correctamente" });
 
-        await producto.save();
-        res.status(201).json(producto);
-    } catch (error) {
-        res.status(400).json({ error: "Error al crear producto: " + error.message });
+    } catch (error) { 
+        res.status(500).json({ error: "Error en el servidor: " + error.message }); 
     }
 });
 
