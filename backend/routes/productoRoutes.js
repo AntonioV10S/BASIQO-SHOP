@@ -36,40 +36,25 @@ router.get('/', async (req, res) => {
 router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
         const { nombre, precio, stock, colores, tallas } = req.body;
+        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
+
+        // Validación de seguridad para JSON.parse
         const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
-        
+
         const producto = new Producto({
-            nombre, precio,
-            stock: parseData(stock), // Aquí parseamos el objeto
+            nombre,
+            precio,
+            stock: Number(stock),
             colores: parseData(colores),
             tallas: parseData(tallas),
-            foto: req.files ? req.files.map(f => f.path) : []
+            foto: rutasFotos
         });
+
         await producto.save();
         res.status(201).json(producto);
-    } catch (error) { res.status(400).json({ error: error.message }); }
-});
-
-// POST: Confirmar Pedido (Lógica Atómica)
-router.post('/confirmar-pedido', async (req, res) => {
-    try {
-        const { productos, total, direccion } = req.body;
-        
-        for (const item of productos) {
-            const resultado = await Producto.findOneAndUpdate(
-                { _id: item._id, [`stock.${item.talla}`]: { $gte: item.cantidad } },
-                { $inc: { [`stock.${item.talla}`]: -item.cantidad } }
-            );
-
-            if (!resultado) {
-                return res.status(400).json({ error: `Stock insuficiente para ${item.nombre} en talla ${item.talla}` });
-            }
-        }
-
-        const nuevoPedido = new Pedido({ productos, total, direccion, fecha: new Date() });
-        await nuevoPedido.save();
-        res.status(201).json({ message: "Pedido registrado" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(400).json({ error: "Error al crear producto: " + error.message });
+    }
 });
 
 // --- PUT: ACTUALIZAR ---
