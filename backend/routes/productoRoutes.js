@@ -33,49 +33,43 @@ router.get('/', async (req, res) => {
 });
 
 // --- POST: CREAR ---
+router.post('/', upload.array('foto', 5), async (req, res) => {
+    try {
+        const { nombre, precio, stock, colores, tallas } = req.body;
+        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
+        
+        const producto = new Producto({
+            nombre, precio,
+            stock: parseData(stock), // Aquí parseamos el objeto
+            colores: parseData(colores),
+            tallas: parseData(tallas),
+            foto: req.files ? req.files.map(f => f.path) : []
+        });
+        await producto.save();
+        res.status(201).json(producto);
+    } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// POST: Confirmar Pedido (Lógica Atómica)
 router.post('/confirmar-pedido', async (req, res) => {
     try {
         const { productos, total, direccion } = req.body;
         
-        if (!productos || productos.length === 0) 
-            return res.status(400).json({ error: "Carrito vacío" });
-
-        // 1. Verificación y actualización atómica
-        // Usamos un bucle para procesar cada producto uno por uno
         for (const item of productos) {
-            // El truco está en buscar el producto Y verificar que su stock sea >= cantidad requerida
             const resultado = await Producto.findOneAndUpdate(
-                { 
-                    _id: item._id, 
-                    [`stock.${item.talla}`]: { $gte: item.cantidad } // Solo encuentra si hay stock
-                },
-                { 
-                    $inc: { [`stock.${item.talla}`]: -item.cantidad } // Resta la cantidad
-                }
+                { _id: item._id, [`stock.${item.talla}`]: { $gte: item.cantidad } },
+                { $inc: { [`stock.${item.talla}`]: -item.cantidad } }
             );
 
-            // Si resultado es null, significa que no encontró el producto con stock suficiente
             if (!resultado) {
-                return res.status(400).json({ 
-                    error: `Stock insuficiente para ${item.nombre} en talla ${item.talla}` 
-                });
+                return res.status(400).json({ error: `Stock insuficiente para ${item.nombre} en talla ${item.talla}` });
             }
         }
 
-        // 2. Si todo salió bien, guardamos el pedido
-        const nuevoPedido = new Pedido({ 
-            productos, 
-            total, 
-            direccion, 
-            fecha: new Date() 
-        });
-        
+        const nuevoPedido = new Pedido({ productos, total, direccion, fecha: new Date() });
         await nuevoPedido.save();
-        res.status(201).json({ message: "Pedido confirmado correctamente" });
-
-    } catch (error) { 
-        res.status(500).json({ error: "Error en el servidor: " + error.message }); 
-    }
+        res.status(201).json({ message: "Pedido registrado" });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // --- PUT: ACTUALIZAR ---
