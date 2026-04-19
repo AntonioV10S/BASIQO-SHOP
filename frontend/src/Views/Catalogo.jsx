@@ -132,14 +132,11 @@ function Catalogo() {
                   {p.tallas && (
                     <div className="flex gap-1 flex-wrap">
                       {p.tallas.map(talla => <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{talla}</span>)}
-                       {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
-                    </div>
-                  )}
-                  {p.colores && (
-                    <div className="flex gap-1 flex-wrap">
                       {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
+                      {p.stock > 0 ? `${p.stock} unidades disponibles` : 'Producto agotado'}
                     </div>
                   )}
+                  
                 </div>
                 <button onClick={() => setProductoSeleccionado(p)} disabled={p.stock <= 0} className="w-full py-4 bg-stone-900 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-emerald-600 transition-all">Seleccionar</button>
               </div>
