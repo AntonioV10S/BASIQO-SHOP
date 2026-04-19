@@ -15,11 +15,11 @@ function Catalogo() {
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
-
-    axios.get(`${API_URL}/api/productos`)
+    
+    axios.get(`${API_URL}/api/productos`) 
       .then(res => setProductos(res.data))
       .catch(err => console.error("Error al cargar productos:", err));
-
+      
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -95,15 +95,15 @@ function Catalogo() {
               </div>
             </div>
             <div className="mb-6">
-              <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Cantidad</p>
-              <input
-                type="number"
-                min="1"
-                max={productoSeleccionado.stock}
-                value={seleccion.cantidad}
-                onChange={(e) => setSeleccion({ ...seleccion, cantidad: parseInt(e.target.value) || 1 })}
-                className="w-full p-3 bg-stone-50 rounded-xl text-center font-black"
-              />
+                <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Cantidad</p>
+                <input
+                    type="number"
+                    min="1"
+                    max={productoSeleccionado.stock}
+                    value={seleccion.cantidad}
+                    onChange={(e) => setSeleccion({ ...seleccion, cantidad: parseInt(e.target.value) || 1 })}
+                    className="w-full p-3 bg-stone-50 rounded-xl text-center font-black"
+                />
             </div>
             <button onClick={agregarAlCarrito} disabled={!seleccion.talla || !seleccion.color} className="w-full py-4 bg-stone-900 text-white rounded-xl uppercase text-[10px] font-bold disabled:opacity-30">Agregar al carrito</button>
           </div>
@@ -127,20 +127,16 @@ function Catalogo() {
               <div className="px-2 pb-2">
                 <h2 className="text-[15px] font-black uppercase tracking-tight text-stone-900 mb-1">{p.nombre}</h2>
                 <p className="text-[13px] font-bold text-stone-500 mb-4 tracking-wider">$ {p.precio}</p>
-
+                
                 <div className="flex flex-col gap-2 mb-4">
                   {p.tallas && (
                     <div className="flex gap-1 flex-wrap">
                       {p.tallas.map(talla => <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{talla}</span>)}
                       {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
+                      
                     </div>
                   )}
-                  <div className="mt-1">
-                    <span className={`text-[9px] font-bold uppercase px-2 py-1 rounded ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                      {p.stock > 0 ? `${p.stock} unidades disponibles` : 'Producto agotado'}
-                    </span>
-                  </div>
-
+                  
                 </div>
                 <button onClick={() => setProductoSeleccionado(p)} disabled={p.stock <= 0} className="w-full py-4 bg-stone-900 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-emerald-600 transition-all">Seleccionar</button>
               </div>
