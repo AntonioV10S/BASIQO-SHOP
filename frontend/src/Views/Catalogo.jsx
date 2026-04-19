@@ -132,6 +132,7 @@ function Catalogo() {
                   {p.tallas && (
                     <div className="flex gap-1 flex-wrap">
                       {p.tallas.map(talla => <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{talla}</span>)}
+                       {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
                     </div>
                   )}
                   {p.colores && (
