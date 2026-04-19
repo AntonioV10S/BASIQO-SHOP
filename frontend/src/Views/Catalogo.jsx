@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const WHATSAPP_NUMBER = '593979274459';
-// Usamos la URL de tu Render para todas las llamadas
 const API_URL = 'https://basiqo-shop.onrender.com';
 
 function Catalogo() {
   const [productos, setProductos] = useState([]);
   const [scrolled, setScrolled] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  // IMPORTANTE: cantidad inicial 1
   const [seleccion, setSeleccion] = useState({ talla: '', color: '', cantidad: 1 });
   const [carrito, setCarrito] = useState([]);
   const [direccionFinal, setDireccionFinal] = useState('');
@@ -18,10 +16,9 @@ function Catalogo() {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     
-    // Llamada corregida a tu API en Render
     axios.get(`${API_URL}/api/productos`) 
       .then(res => setProductos(res.data))
-      .catch(err => console.error(err));
+      .catch(err => console.error("Error al cargar productos:", err));
       
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -44,7 +41,6 @@ function Catalogo() {
     const total = subtotal + costoEnvio;
 
     try {
-      // POST corregido hacia tu servidor en Render
       const res = await axios.post(`${API_URL}/api/productos/confirmar-pedido`, {
         productos: carrito,
         total: total,
@@ -84,7 +80,7 @@ function Catalogo() {
               <div>
                 <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Talla</p>
                 <div className="flex flex-wrap gap-1">
-                  {productoSeleccionado.tallas.map(t => (
+                  {productoSeleccionado.tallas?.map(t => (
                     <button key={t} onClick={() => setSeleccion({ ...seleccion, talla: t })} className={`w-8 h-8 border text-[10px] font-black ${seleccion.talla === t ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>{t}</button>
                   ))}
                 </div>
@@ -92,22 +88,22 @@ function Catalogo() {
               <div>
                 <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Color</p>
                 <div className="flex flex-wrap gap-1">
-                  {productoSeleccionado.colores.map(c => (
+                  {productoSeleccionado.colores?.map(c => (
                     <button key={c} onClick={() => setSeleccion({ ...seleccion, color: c })} className={`px-2 h-8 border text-[9px] font-black uppercase ${seleccion.color === c ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>{c}</button>
                   ))}
                 </div>
-                <div className="mt-4">
-                  <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Cantidad</p>
-                  <input
+              </div>
+            </div>
+            <div className="mb-6">
+                <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Cantidad</p>
+                <input
                     type="number"
                     min="1"
                     max={productoSeleccionado.stock}
                     value={seleccion.cantidad}
                     onChange={(e) => setSeleccion({ ...seleccion, cantidad: parseInt(e.target.value) || 1 })}
                     className="w-full p-3 bg-stone-50 rounded-xl text-center font-black"
-                  />
-                </div>
-              </div>
+                />
             </div>
             <button onClick={agregarAlCarrito} disabled={!seleccion.talla || !seleccion.color} className="w-full py-4 bg-stone-900 text-white rounded-xl uppercase text-[10px] font-bold disabled:opacity-30">Agregar al carrito</button>
           </div>
@@ -119,7 +115,7 @@ function Catalogo() {
         <div className="text-center"><h1 className={`font-black uppercase ${scrolled ? 'text-2xl' : 'text-5xl'}`}>BASIQO</h1></div>
       </header>
 
-      {/* GRID */}
+      {/* GRID PRODUCTOS */}
       <main className="p-6 md:p-12 max-w-7xl mx-auto mt-32">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
           {productos.map(p => (
@@ -131,28 +127,18 @@ function Catalogo() {
               <div className="px-2 pb-2">
                 <h2 className="text-[15px] font-black uppercase tracking-tight text-stone-900 mb-1">{p.nombre}</h2>
                 <p className="text-[13px] font-bold text-stone-500 mb-4 tracking-wider">$ {p.precio}</p>
+                
                 <div className="flex flex-col gap-2 mb-4">
-                  {/* Tallas */}
-                  <div className="flex gap-1 flex-wrap">
-                    {p.tallas.map(talla => (
-                      <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">
-                        {talla}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Colores */}
-                  <div className="flex gap-1 flex-wrap">
-                    {p.colores.map(color => (
-                      <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">
-                        {color}
-                      </span>
-                    ))}
-
-                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${p.stock > 0 ? 'bg-stone-100 text-stone-600' : 'bg-red-50 text-red-500'}`}>
-                      {p.stock > 0 ? `${p.stock} disponibles` : 'Agotado'}
-                    </span>
-                  </div>
+                  {p.tallas && (
+                    <div className="flex gap-1 flex-wrap">
+                      {p.tallas.map(talla => <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{talla}</span>)}
+                    </div>
+                  )}
+                  {p.colores && (
+                    <div className="flex gap-1 flex-wrap">
+                      {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setProductoSeleccionado(p)} disabled={p.stock <= 0} className="w-full py-4 bg-stone-900 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-emerald-600 transition-all">Seleccionar</button>
               </div>
@@ -160,7 +146,6 @@ function Catalogo() {
           ))}
         </div>
       </main>
-
 
       {/* CARRITO FLOTANTE */}
       {carrito.length > 0 && (
@@ -170,7 +155,6 @@ function Catalogo() {
             <button onClick={() => setCarrito([])} className="text-[9px] text-red-500 font-bold uppercase">Limpiar todo</button>
           </div>
 
-          {/* LISTA DE PRODUCTOS EN EL CARRITO */}
           <div className="space-y-3 mb-6 max-h-40 overflow-y-auto pr-2">
             {carrito.map((item, index) => (
               <div key={index} className="flex justify-between items-center text-[10px] border-b border-stone-50 pb-2">
@@ -180,9 +164,9 @@ function Catalogo() {
                 </div>
                 <button
                   onClick={() => setCarrito(carrito.filter((_, i) => i !== index))}
-                  className="text-stone-300 hover:text-red-500 font-bold"
+                  className="text-stone-300 hover:text-red-500 font-bold px-2"
                 >
-
+                  ✕
                 </button>
               </div>
             ))}
@@ -198,7 +182,7 @@ function Catalogo() {
 
           <button
             disabled={!direccionFinal}
-            onClick={confirmarPedidoYEnviar} // <--- Este es el cambio clave
+            onClick={confirmarPedidoYEnviar}
             className="w-full py-4 bg-emerald-600 text-white rounded-xl uppercase text-[10px] font-bold disabled:opacity-30"
           >
             Confirmar y Enviar Pedido
