@@ -133,4 +133,54 @@ router.delete('/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// --- REPORTES PRO ---
+router.get('/reportes', async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+
+    let filtroFecha = {};
+
+    if (desde && hasta) {
+      filtroFecha = {
+        fecha: {
+          $gte: new Date(desde),
+          $lte: new Date(hasta)
+        }
+      };
+    }
+
+    const pedidos = await Pedido.find(filtroFecha).lean();
+
+    // 📊 Métricas
+    const totalVentas = pedidos.reduce((acc, p) => acc + p.total, 0);
+    const totalPedidos = pedidos.length;
+    const ticketPromedio = totalPedidos > 0 ? totalVentas / totalPedidos : 0;
+
+    // 🔥 Productos más vendidos
+    const contador = {};
+
+    pedidos.forEach(p => {
+      p.productos.forEach(prod => {
+        const nombre = prod.nombre;
+        contador[nombre] = (contador[nombre] || 0) + 1;
+      });
+    });
+
+    const topProductos = Object.entries(contador)
+      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 5);
+
+    res.json({
+      totalVentas,
+      totalPedidos,
+      ticketPromedio,
+      topProductos
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
