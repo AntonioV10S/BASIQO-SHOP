@@ -7,9 +7,9 @@ const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 
 cloudinary.config({
-    cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.API_KEY,
-    api_secret: process.env.API_SECRET
+    cloud_name: 'dmzmhugvd',
+    api_key: '962417948158365',
+    api_secret: '7fMzOw_p3cjJCTFOCcxv_Wcby_g'
 });
 
 const storage = new CloudinaryStorage({
@@ -22,20 +22,11 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
+// --- RUTA PRINCIPAL (LISTAR) ---
 router.get('/', async (req, res) => {
     try {
-        const productos = await Producto.find()
-            .select('nombre precio foto stock tallas colores')
-            .lean();
-
-        const productosOptimizados = productos.map(p => ({
-            ...p,
-            foto: p.foto && p.foto.length > 0
-                ? p.foto[0].replace('/upload/', '/upload/w_500,q_auto,f_auto/')
-                : null
-        }));
-
-        res.json(productosOptimizados);
+        const productos = await Producto.find();
+        res.json(productos);
     } catch (error) {
         res.status(500).json({ error: "Error al obtener productos: " + error.message });
     }
@@ -43,25 +34,27 @@ router.get('/', async (req, res) => {
 
 // --- POST: CREAR ---
 router.post('/', upload.array('foto', 5), async (req, res) => {
-  try {
-    const { nombre, precio, stock } = req.body;
+    try {
+        const { nombre, precio, stock, colores, tallas } = req.body;
+        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
 
-    const rutasFotos = req.files ? req.files.map(f => f.path) : [];
+        // Validación de seguridad para JSON.parse
+        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
 
-    const producto = new Producto({
-      nombre,
-      precio,
-      stock: typeof stock === 'string' ? JSON.parse(stock) : stock,
-      foto: rutasFotos
-    });
+        const producto = new Producto({
+            nombre,
+            precio,
+            stock: Number(stock),
+            colores: parseData(colores),
+            tallas: parseData(tallas),
+            foto: rutasFotos
+        });
 
-    await producto.save();
-    res.status(201).json(producto);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
+        await producto.save();
+        res.status(201).json(producto);
+    } catch (error) {
+        res.status(400).json({ error: "Error al crear producto: " + error.message });
+    }
 });
 
 // --- PUT: ACTUALIZAR ---
@@ -129,56 +122,6 @@ router.delete('/:id', async (req, res) => {
         await Producto.findByIdAndDelete(req.params.id);
         res.json({ message: 'Producto eliminado' });
     } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// --- REPORTES PRO ---
-router.get('/reportes', async (req, res) => {
-  try {
-    const { desde, hasta } = req.query;
-
-    let filtroFecha = {};
-
-    if (desde && hasta) {
-      filtroFecha = {
-        fecha: {
-          $gte: new Date(desde),
-          $lte: new Date(hasta)
-        }
-      };
-    }
-
-    const pedidos = await Pedido.find(filtroFecha).lean();
-
-    // 📊 Métricas
-    const totalVentas = pedidos.reduce((acc, p) => acc + p.total, 0);
-    const totalPedidos = pedidos.length;
-    const ticketPromedio = totalPedidos > 0 ? totalVentas / totalPedidos : 0;
-
-    // 🔥 Productos más vendidos
-    const contador = {};
-
-    pedidos.forEach(p => {
-      p.productos.forEach(prod => {
-        const nombre = prod.nombre;
-        contador[nombre] = (contador[nombre] || 0) + 1;
-      });
-    });
-
-    const topProductos = Object.entries(contador)
-      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 5);
-
-    res.json({
-      totalVentas,
-      totalPedidos,
-      ticketPromedio,
-      topProductos
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
 module.exports = router;
