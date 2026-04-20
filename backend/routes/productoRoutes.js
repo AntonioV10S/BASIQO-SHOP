@@ -6,10 +6,11 @@ const cloudinary = require('cloudinary').v2;
 const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 
+// Configuración segura con variables de entorno
 cloudinary.config({
-    cloud_name: 'dmzmhugvd',
-    api_key: '962417948158365',
-    api_secret: '7fMzOw_p3cjJCTFOCcxv_Wcby_g'
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 const storage = new CloudinaryStorage({
@@ -22,106 +23,81 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// --- RUTA PRINCIPAL (LISTAR) ---
+// --- CATALOGO (Rápido y ligero) ---
 router.get('/', async (req, res) => {
     try {
-        const productos = await Producto.find();
+        // Solo traemos campos necesarios para que cargue volando
+        const productos = await Producto.find().select('nombre precio foto variantes').lean();
         res.json(productos);
     } catch (error) {
-        res.status(500).json({ error: "Error al obtener productos: " + error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
-// --- POST: CREAR ---
+// --- CREAR PRODUCTO ---
 router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
-        const { nombre, precio, stock, colores, tallas } = req.body;
+        const { nombre, precio, descripcion, variantes } = req.body;
         const rutasFotos = req.files ? req.files.map(file => file.path) : [];
 
-        // Validación de seguridad para JSON.parse
-        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
+        // Convertimos el string de variantes (del FormData) a un Objeto JS
+        const variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
 
-        const producto = new Producto({
+        const nuevoProducto = new Producto({
             nombre,
             precio,
-            stock: Number(stock),
-            colores: parseData(colores),
-            tallas: parseData(tallas),
-            foto: rutasFotos
+            descripcion,
+            foto: rutasFotos,
+            variantes: variantesParsed
         });
 
-        await producto.save();
-        res.status(201).json(producto);
+        await nuevoProducto.save();
+        res.status(201).json(nuevoProducto);
     } catch (error) {
-        res.status(400).json({ error: "Error al crear producto: " + error.message });
+        res.status(400).json({ error: "Error al crear: " + error.message });
     }
 });
 
-// --- PUT: ACTUALIZAR ---
-router.put('/:id', upload.array('foto', 5), async (req, res) => {
-    try {
-        const { nombre, precio, stock, colores, tallas } = req.body;
-        const productoExistente = await Producto.findById(req.params.id);
-
-        if (!productoExistente) return res.status(404).json({ error: "Producto no encontrado" });
-
-        const nuevasFotos = req.files && req.files.length > 0
-            ? req.files.map(f => f.path)
-            : productoExistente.foto;
-
-        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
-
-        const productoActualizado = await Producto.findByIdAndUpdate(
-            req.params.id,
-            { 
-                $set: {
-                    nombre,
-                    precio,
-                    stock: Number(stock),
-                    colores: parseData(colores),
-                    tallas: parseData(tallas),
-                    foto: nuevasFotos
-                }
-            },
-            { new: true }
-        );
-
-        res.json(productoActualizado);
-    } catch (error) {
-        res.status(500).json({ error: "Error al actualizar: " + error.message });
-    }
-});
-
-// --- OTRAS RUTAS (Pedidos, etc) ---
-router.get('/historial', async (req, res) => {
-    try {
-        const historial = await Pedido.find().sort({ fecha: -1 });
-        res.json(historial);
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
+// --- CONFIRMAR PEDIDO (Con descuento de stock real) ---
 router.post('/confirmar-pedido', async (req, res) => {
     try {
         const { productos, total, direccion } = req.body;
-        // Validación simplificada
-        if (!productos || !total) return res.status(400).json({ error: "Datos incompletos" });
-        
-        // Descontar stock
+
+        if (!productos || productos.length === 0) return res.status(400).json({ error: "Carrito vacío" });
+
+        // Procesamos cada item para descontar la variante exacta
         for (const item of productos) {
-            await Producto.findByIdAndUpdate(item._id, { $inc: { stock: -1 } });
+            const result = await Producto.updateOne(
+                {
+                    _id: item.productoId,
+                    "variantes.color": item.color,
+                    "variantes.talla": item.talla,
+                    "variantes.stock": { $gte: item.cantidad } // Solo si hay stock suficiente
+                },
+                { $inc: { "variantes.$.stock": -item.cantidad } }
+            );
+
+            if (result.matchedCount === 0) {
+                throw new Error(`Stock insuficiente o no existe la variante: ${item.color} Talla ${item.talla}`);
+            }
         }
 
         const nuevoPedido = new Pedido({ productos, total, direccion, fecha: new Date() });
         await nuevoPedido.save();
-        res.status(201).json({ message: "Pedido registrado" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        res.status(201).json({ message: "¡Pedido BASIQO registrado!" });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
+// --- ELIMINAR ---
 router.delete('/:id', async (req, res) => {
     try {
         await Producto.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Producto eliminado' });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        res.json({ message: 'Producto eliminado correctamente' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;

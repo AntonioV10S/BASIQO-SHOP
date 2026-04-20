@@ -5,12 +5,14 @@ import { useNavigate } from 'react-router-dom';
 
 const TALLAS_DISPONIBLES = ['S', 'M', 'L', 'XL', 'XXL'];
 const COLORES_DISPONIBLES = ['BLANCO', 'NEGRO', 'AZUL NAVY', 'BEIGE', 'VINO', 'VERDE MILITAR'];
+const API_URL = 'https://basiqo-shop.onrender.com';
 
 const formatPrice = (price) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(price);
 
 function Admin({ setAutenticado }) {
   const [productos, setProductos] = useState([]);
-  const [nuevo, setNuevo] = useState({ nombre: '', precio: '', stock: 0, colores: [], tallas: [] });
+  const [nuevo, setNuevo] = useState({ nombre: '', precio: '', descripcion: '', colores: [], tallas: [] });
+  const [variantes, setVariantes] = useState([]); // Nuevo estado para stock detallado
   const [imagen, setImagen] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -19,22 +21,36 @@ function Admin({ setAutenticado }) {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  const cerrarSesion = () => {
-    setAutenticado(false);
-    toast.success('Sesión finalizada');
-    navigate('/login');
-  };
-
   const fetchProductos = () => {
-    axios.get(`${API_URL}/api/productos?t=${new Date().getTime()}`)
+    axios.get(`${API_URL}/api/productos`)
       .then(res => setProductos(res.data))
       .catch(err => console.error(err));
   };
 
   useEffect(() => { fetchProductos(); }, []);
 
+  // Generar variantes automáticamente cuando cambian colores o tallas
+  useEffect(() => {
+    if (!editandoId) { // Solo auto-generar si es producto nuevo
+      const nuevasVariantes = [];
+      nuevo.colores.forEach(c => {
+        nuevo.tallas.forEach(t => {
+          nuevasVariantes.push({ color: c, talla: t, stock: 0 });
+        });
+      });
+      setVariantes(nuevasVariantes);
+    }
+  }, [nuevo.colores, nuevo.tallas, editandoId]);
+
+  const handleStockChange = (color, talla, valor) => {
+    setVariantes(prev => prev.map(v =>
+      (v.color === color && v.talla === talla) ? { ...v, stock: parseInt(valor) || 0 } : v
+    ));
+  };
+
   const limpiarFormulario = () => {
-    setNuevo({ nombre: '', precio: '', stock: 0, colores: [], tallas: [] });
+    setNuevo({ nombre: '', precio: '', descripcion: '', colores: [], tallas: [] });
+    setVariantes([]);
     setImagen(null);
     setEditandoId(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -50,164 +66,165 @@ function Admin({ setAutenticado }) {
 
   const iniciarEdicion = (prod) => {
     setEditandoId(prod._id);
-    setNuevo({ nombre: prod.nombre, precio: prod.precio, stock: prod.stock || 0, colores: prod.colores || [], tallas: prod.tallas || [] });
+    setNuevo({
+      nombre: prod.nombre,
+      precio: prod.precio,
+      descripcion: prod.descripcion,
+      colores: [...new Set(prod.variantes.map(v => v.color))],
+      tallas: [...new Set(prod.variantes.map(v => v.talla))]
+    });
+    setVariantes(prod.variantes);
     setModalAbierto(true);
   };
 
-  const API_URL = 'https://basiqo-shop.onrender.com';
-
   const guardarProducto = async (e) => {
     e.preventDefault();
+    if (variantes.length === 0) return toast.error("Selecciona al menos un color y una talla");
+
     setCargando(true);
     const formData = new FormData();
     formData.append('nombre', nuevo.nombre);
     formData.append('precio', nuevo.precio);
-    formData.append('stock', parseInt(nuevo.stock) || 0);
-    formData.append('colores', JSON.stringify(nuevo.colores));
-    formData.append('tallas', JSON.stringify(nuevo.tallas));
-    if (imagen && imagen.length > 0) {
-    for (let i = 0; i < imagen.length; i++) {
-      formData.append('foto', imagen[i]); // "fotos" (plural)
+    formData.append('descripcion', nuevo.descripcion);
+    formData.append('variantes', JSON.stringify(variantes)); // Enviamos el stock detallado
+
+    if (imagen) {
+      for (let i = 0; i < imagen.length; i++) {
+        formData.append('foto', imagen[i]);
+      }
     }
-  }
 
     try {
       if (editandoId) await axios.put(`${API_URL}/api/productos/${editandoId}`, formData);
       else await axios.post(`${API_URL}/api/productos`, formData);
-      toast.success('Guardado correctamente');
+
+      toast.success('Basiqo actualizado');
       fetchProductos();
       setModalAbierto(false);
       limpiarFormulario();
-    } catch (err) { toast.error('Error al guardar'); } finally { setCargando(false); }
+    } catch (err) {
+      toast.error('Error al guardar');
+    } finally {
+      setCargando(false);
+    }
   };
 
+  const calcularTotalStock = (vars) => vars.reduce((acc, v) => acc + (v.stock || 0), 0);
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] p-8 md:p-16 font-sans text-stone-900">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-[#F5F5F3] p-6 md:p-12 font-sans text-stone-900">
+      <Toaster position="bottom-center" />
 
-      <header className="mb-12 flex flex-col md:flex-row justify-between items-center border-b border-stone-100 pb-8 gap-4">
-        <div className="text-center md:text-left">
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-stone-900">
-            Basiqo <span className="text-emerald-500 text-sm tracking-widest uppercase ml-2">Admin</span>
-          </h1>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mt-1">Panel de Control & Inventario</p>
+      <header className="max-w-7xl mx-auto mb-12 flex flex-col md:flex-row justify-between items-end border-b border-stone-200 pb-8 gap-6">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Basiqo <span className="text-stone-400 not-italic font-light">Inventory</span></h1>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-2">Gestión de Stock por Variantes</p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/reportes')} className="px-6 py-3 bg-stone-100 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-stone-200 transition-all flex items-center gap-2">
-            Ver Reportes
-          </button>
-          <button onClick={() => { limpiarFormulario(); setModalAbierto(true); }} className="px-6 py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all">
-            + Agregar Prenda
-          </button>
-          <button onClick={cerrarSesion} className="px-6 py-3 bg-stone-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 transition-all">
-            Cerrar Sesión
+        <div className="flex gap-3">
+          <button onClick={() => { limpiarFormulario(); setModalAbierto(true); }} className="px-8 py-4 bg-stone-900 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg">
+            + Nuevo Ingreso
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {productos.map(p => (
-          <div key={p._id} className="group bg-white rounded-2xl border border-stone-200 overflow-hidden hover:border-stone-900 transition-all shadow-sm hover:shadow-xl">
-            <div className="aspect-[3/4] bg-stone-100 relative">
-              {p.foto && <img src={p.foto} alt={p.nombre} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />}
-              {p.stock <= 0 && <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center text-white text-[9px] font-bold tracking-widest uppercase">Agotado</div>}
-            </div>
-            <div className="p-4">
-              <h2 className="text-xs font-bold uppercase truncate mb-1">{p.nombre}</h2>
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[11px] font-mono font-bold text-stone-500">{formatPrice(p.precio)}</span>
-                <span className={`text-[9px] font-bold ${p.stock <= 3 ? 'text-red-500' : 'text-stone-400'}`}>{p.stock} unid.</span>
+      {/* Grid de Productos */}
+      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+        {productos.map(p => {
+          const totalStock = calcularTotalStock(p.variantes);
+          return (
+            <div key={p._id} className="group bg-white rounded-3xl overflow-hidden border border-transparent hover:border-stone-200 transition-all">
+              <div className="aspect-[3/4] bg-stone-200 relative overflow-hidden">
+                <img src={p.foto[0]} alt={p.nombre} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                {totalStock <= 0 && <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center text-white text-[10px] font-black uppercase italic">Sold Out</div>}
               </div>
-              <button onClick={() => iniciarEdicion(p)} className="w-full py-2 bg-stone-50 hover:bg-stone-900 hover:text-white text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all">Editar</button>
+              <div className="p-5 text-center">
+                <h2 className="text-[11px] font-black uppercase mb-1 truncate">{p.nombre}</h2>
+                <p className="text-[10px] font-bold text-stone-400 mb-3">{formatPrice(p.precio)}</p>
+                <div className="flex justify-center gap-1 mb-4">
+                  <span className={`text-[9px] font-black px-2 py-1 rounded-full ${totalStock < 5 ? 'bg-red-100 text-red-600' : 'bg-stone-100 text-stone-500'}`}>
+                    {totalStock} DISPONIBLES
+                  </span>
+                </div>
+                <button onClick={() => iniciarEdicion(p)} className="w-full py-3 border border-stone-200 rounded-xl text-[9px] font-bold uppercase hover:bg-stone-900 hover:text-white transition-all">Gestionar</button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
+      {/* Modal Moderno */}
       {modalAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setModalAbierto(false)}></div>
-          <div className="bg-white w-full max-w-lg p-8 rounded-3xl relative z-10 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-sm font-black uppercase tracking-widest mb-6">{editandoId ? 'Editar Prenda' : 'Nueva Prenda'}</h2>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setModalAbierto(false)}></div>
+          <div className="bg-white w-full max-w-2xl p-10 rounded-[40px] relative z-10 max-h-[85vh] overflow-y-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-10">
+              <h2 className="text-xl font-black uppercase italic italic tracking-tighter">{editandoId ? 'Actualizar Stock' : 'Ingresar Prenda'}</h2>
+              <button onClick={() => setModalAbierto(false)} className="text-stone-300 hover:text-stone-900">✕</button>
+            </div>
 
-            <form onSubmit={guardarProducto} className="flex flex-col gap-4">
-              <input
-                className="bg-stone-50 p-4 rounded-xl text-sm"
-                placeholder="Nombre"
-                value={nuevo.nombre}
-                onChange={e => setNuevo({ ...nuevo, nombre: e.target.value })}
-                required
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  className="bg-stone-50 p-4 rounded-xl text-sm"
-                  placeholder="Precio"
-                  type="number"
-                  value={nuevo.precio}
-                  onChange={e => setNuevo({ ...nuevo, precio: e.target.value })}
-                  required
-                />
-                <input
-                  className="bg-stone-50 p-4 rounded-xl text-sm"
-                  placeholder="Stock"
-                  type="number"
-                  value={nuevo.stock}
-                  onChange={e => setNuevo({ ...nuevo, stock: e.target.value })}
-                  required
-                />
+            <form onSubmit={guardarProducto} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <input className="w-full bg-stone-100 p-4 rounded-2xl text-sm font-bold" placeholder="Nombre de la prenda" value={nuevo.nombre} onChange={e => setNuevo({ ...nuevo, nombre: e.target.value })} required />
+                  <input className="w-full bg-stone-100 p-4 rounded-2xl text-sm font-bold" placeholder="Precio (COP)" type="number" value={nuevo.precio} onChange={e => setNuevo({ ...nuevo, precio: e.target.value })} required />
+                </div>
+                <textarea className="w-full bg-stone-100 p-4 rounded-2xl text-sm font-bold h-full" placeholder="Descripción corta..." value={nuevo.descripcion} onChange={e => setNuevo({ ...nuevo, descripcion: e.target.value })} />
               </div>
 
-              {/* Sección Colores */}
-              <div>
-                <p className="text-[10px] font-bold uppercase text-stone-400 mb-2">Colores</p>
-                <div className="flex flex-wrap gap-2">
-                  {COLORES_DISPONIBLES.map(c => (
-                    <label key={c} className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer ${nuevo.colores.includes(c) ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>
-                      <input type="checkbox" className="hidden" checked={nuevo.colores.includes(c)} onChange={(e) => handleCheckbox(e, 'colores', c)} />
-                      {c}
-                    </label>
-                  ))}
+              {/* Selectores de Atributos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6 border-y border-stone-100">
+                <div>
+                  <p className="text-[10px] font-black uppercase mb-4 text-stone-400">1. Selecciona Colores</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORES_DISPONIBLES.map(c => (
+                      <label key={c} className={`px-4 py-2 rounded-xl border text-[9px] font-black cursor-pointer transition-all ${nuevo.colores.includes(c) ? 'bg-stone-900 border-stone-900 text-white shadow-lg' : 'bg-white text-stone-400 border-stone-200'}`}>
+                        <input type="checkbox" className="hidden" checked={nuevo.colores.includes(c)} onChange={(e) => handleCheckbox(e, 'colores', c)} />
+                        {c}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase mb-4 text-stone-400">2. Selecciona Tallas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {TALLAS_DISPONIBLES.map(t => (
+                      <label key={t} className={`w-10 h-10 flex items-center justify-center rounded-xl border text-[10px] font-black cursor-pointer transition-all ${nuevo.tallas.includes(t) ? 'bg-stone-900 border-stone-900 text-white' : 'bg-white text-stone-400 border-stone-200'}`}>
+                        <input type="checkbox" className="hidden" checked={nuevo.tallas.includes(t)} onChange={(e) => handleCheckbox(e, 'tallas', t)} />
+                        {t}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Sección Tallas */}
-              <div>
-                <p className="text-[10px] font-bold uppercase text-stone-400 mb-2">Tallas</p>
-                <div className="flex flex-wrap gap-2">
-                  {TALLAS_DISPONIBLES.map(t => (
-                    <label key={t} className={`w-8 h-8 flex items-center justify-center rounded-lg border text-[10px] font-bold cursor-pointer ${nuevo.tallas.includes(t) ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>
-                      <input type="checkbox" className="hidden" checked={nuevo.tallas.includes(t)} onChange={(e) => handleCheckbox(e, 'tallas', t)} />
-                      {t}
-                    </label>
-                  ))}
+              {/* LISTADO DE STOCK DETALLADO */}
+              {variantes.length > 0 && (
+                <div className="bg-stone-50 p-6 rounded-3xl">
+                  <p className="text-[10px] font-black uppercase mb-6 text-stone-900 italic">3. Define Stock por combinación</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {variantes.map((v, i) => (
+                      <div key={i} className="flex items-center justify-between bg-white p-3 rounded-2xl border border-stone-200 shadow-sm">
+                        <span className="text-[10px] font-black uppercase">{v.color} / {v.talla}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-16 text-center text-sm font-black bg-stone-100 rounded-lg p-1"
+                          value={v.stock}
+                          onChange={(e) => handleStockChange(v.color, v.talla, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase text-stone-400">4. Galería de Imágenes</p>
+                <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={e => setImagen(e.target.files)} className="w-full text-[10px] font-bold bg-stone-100 p-4 rounded-2xl cursor-pointer" />
               </div>
 
-              {/* Sección Foto (Singular) */}
-              <div className="mt-2">
-                <p className="text-[10px] font-bold uppercase text-stone-400 mb-2">Foto Principal</p>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={e => setImagen(e.target.files)} // Aquí guardamos toda la lista de archivos
-                  className="w-full text-sm bg-stone-50 p-3 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-stone-900 file:text-white hover:file:bg-emerald-600 cursor-pointer"
-                />
-                {imagen && (
-                  <p className="text-[9px] text-emerald-600 mt-1 font-bold">
-                    Archivo seleccionado: {imagen.name}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={cargando}
-                className="w-full py-4 bg-stone-900 text-white text-[10px] font-bold uppercase rounded-xl hover:bg-emerald-600 transition-all disabled:opacity-50"
-              >
-                {cargando ? 'Procesando...' : (editandoId ? 'Guardar Cambios' : 'Publicar Producto')}
+              <button type="submit" disabled={cargando} className="w-full py-5 bg-stone-900 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-emerald-600 transition-all shadow-xl disabled:opacity-50">
+                {cargando ? 'Sincronizando...' : (editandoId ? 'Guardar Cambios en Inventario' : 'Lanzar al Catálogo')}
               </button>
             </form>
           </div>

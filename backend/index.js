@@ -2,30 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const compression = require('compression');
 
-// Importar rutas
 const productoRoutes = require('./routes/productoRoutes');
-
 const app = express();
 
-// Middlewares globales
-app.use(cors()); // CORS habilitado para todos los orígenes
-app.use(express.json()); // Para parsear JSON
-app.use(express.urlencoded({ extended: true })); // Para parsear datos de formularios
+// Optimizaciones
+app.use(compression());
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// Rutas
+app.use('/api/productos', productoRoutes);
 
-//  Usar rutas
-app.use('/api/productos', productoRoutes); 
-
-// Conexión a MongoDB
+// Conexión
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('¡Conectado a la base de datos de BASIQO!'))
-  .catch(err => console.error('Error de conexión:', err));
+  .then(() => console.log('🚀 Base de datos conectada: BASIQO está en línea'))
+  .catch(err => console.error('Error:', err));
 
 const PORT = process.env.PORT || 3000;
-// Diagnóstico de rutas
-app.use((req, res, next) => {
-    console.log(`Intento de acceso a: ${req.method} ${req.url}`);
-    next();
-});
-app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));

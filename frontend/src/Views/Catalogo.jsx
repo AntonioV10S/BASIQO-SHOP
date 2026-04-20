@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 
 const WHATSAPP_NUMBER = '593979274459';
 const API_URL = 'https://basiqo-shop.onrender.com';
@@ -23,21 +24,51 @@ function Catalogo() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const agregarAlCarrito = () => {
-    const productosParaAgregar = Array.from({ length: seleccion.cantidad }, () => ({
-      ...productoSeleccionado,
-      talla: seleccion.talla,
-      color: seleccion.color
-    }));
+  // Obtener stock máximo de la variante seleccionada
+  const getStockDisponible = () => {
+    if (!productoSeleccionado || !seleccion.color || !seleccion.talla) return 0;
+    const variante = productoSeleccionado.variantes.find(
+      v => v.color === seleccion.color && v.talla === seleccion.talla
+    );
+    return variante ? variante.stock : 0;
+  };
 
-    setCarrito([...carrito, ...productosParaAgregar]);
+  const agregarAlCarrito = () => {
+    const stockMax = getStockDisponible();
+    if (seleccion.cantidad > stockMax) {
+      return toast.error(`Solo quedan ${stockMax} unidades de esta combinación.`);
+    }
+
+    const itemNuevo = {
+      id: productoSeleccionado._id,
+      nombre: productoSeleccionado.nombre,
+      precio: productoSeleccionado.precio,
+      talla: seleccion.talla,
+      color: seleccion.color,
+      cantidad: seleccion.cantidad
+    };
+
+    // Si ya existe la misma prenda con misma talla/color, sumamos cantidad
+    const existeIdx = carrito.findIndex(item =>
+      item.id === itemNuevo.id && item.talla === itemNuevo.talla && item.color === itemNuevo.color
+    );
+
+    if (existeIdx > -1) {
+      const nuevoCarrito = [...carrito];
+      nuevoCarrito[existeIdx].cantidad += itemNuevo.cantidad;
+      setCarrito(nuevoCarrito);
+    } else {
+      setCarrito([...carrito, itemNuevo]);
+    }
+
     setProductoSeleccionado(null);
     setSeleccion({ talla: '', color: '', cantidad: 1 });
+    toast.success('Agregado al carrito');
   };
 
   const confirmarPedidoYEnviar = async () => {
-    const subtotal = carrito.reduce((acc, p) => acc + parseFloat(p.precio), 0);
-    const costoEnvio = direccionFinal.toLowerCase().includes('calceta') ? 0 : 6.00;
+    const subtotal = carrito.reduce((acc, p) => acc + (parseFloat(p.precio) * p.cantidad), 0);
+    const costoEnvio = direccionFinal.toLowerCase().includes('calceta') ? 0 : 5.00; // Ajustado a valor estándar
     const total = subtotal + costoEnvio;
 
     try {
@@ -48,146 +79,159 @@ function Catalogo() {
       });
 
       if (res.status === 200 || res.status === 201) {
-        let mensaje = `*PEDIDO CONFIRMADO - BASIQO*%0A%0A`;
+        let mensaje = `*NUEVO PEDIDO - BASIQO*%0A%0A`;
         carrito.forEach((p, i) => {
-          mensaje += `${i + 1}. ${p.nombre} (${p.talla}, ${p.color}) - $${p.precio}%0A`;
+          mensaje += `• ${p.nombre} [${p.color} / ${p.talla}] x${p.cantidad} - $${(p.precio * p.cantidad).toFixed(2)}%0A`;
         });
-        mensaje += `%0A*TOTAL A PAGAR:* $${total.toFixed(2)}`;
+        mensaje += `%0A*Subtotal:* $${subtotal.toFixed(2)}`;
+        mensaje += `%0A*Envío:* $${costoEnvio.toFixed(2)}`;
+        mensaje += `%0A*TOTAL:* $${total.toFixed(2)}`;
         mensaje += `%0A%0A*Dirección:* ${direccionFinal}`;
 
         window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${mensaje}`, '_blank');
-
         setCarrito([]);
         setDireccionFinal('');
-        window.location.reload();
       }
     } catch (err) {
-      alert("Lo sentimos, uno de los productos ya no está disponible.");
-      window.location.reload();
+      toast.error("Stock agotado o error en el servidor.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f2ed] text-stone-900 font-sans pb-32">
+    <div className="min-h-screen bg-[#F9F9F7] text-stone-900 font-sans pb-32">
+      <Toaster position="top-center" />
 
       {/* MODAL DE SELECCIÓN */}
       {productoSeleccionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setProductoSeleccionado(null)}></div>
-          <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl relative z-10">
-            <h3 className="font-black uppercase text-sm mb-6">{productoSeleccionado.nombre}</h3>
-            <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setProductoSeleccionado(null)}></div>
+          <div className="bg-white p-8 rounded-[32px] w-full max-w-sm shadow-2xl relative z-10 border border-stone-100">
+            <h3 className="font-black italic uppercase text-lg mb-2">{productoSeleccionado.nombre}</h3>
+            <p className="text-[10px] font-bold text-stone-400 mb-6 uppercase tracking-widest">Selecciona tus preferencias</p>
+
+            <div className="space-y-6 mb-8">
+              {/* Selector de Color */}
               <div>
-                <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Talla</p>
-                <div className="flex flex-wrap gap-1">
-                  {productoSeleccionado.tallas?.map(t => (
-                    <button key={t} onClick={() => setSeleccion({ ...seleccion, talla: t })} className={`w-8 h-8 border text-[10px] font-black ${seleccion.talla === t ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>{t}</button>
+                <p className="text-[9px] font-black text-stone-900 mb-3 uppercase">Color</p>
+                <div className="flex flex-wrap gap-2">
+                  {[...new Set(productoSeleccionado.variantes.map(v => v.color))].map(c => (
+                    <button key={c} onClick={() => setSeleccion({ ...seleccion, color: c, talla: '' })}
+                      className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase transition-all ${seleccion.color === c ? 'bg-stone-900 text-white' : 'bg-stone-50 border-stone-200'}`}>{c}</button>
                   ))}
                 </div>
               </div>
+
+              {/* Selector de Talla (Filtrado por Color) */}
               <div>
-                <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Color</p>
-                <div className="flex flex-wrap gap-1">
-                  {productoSeleccionado.colores?.map(c => (
-                    <button key={c} onClick={() => setSeleccion({ ...seleccion, color: c })} className={`px-2 h-8 border text-[9px] font-black uppercase ${seleccion.color === c ? 'bg-stone-900 text-white' : 'bg-stone-50'}`}>{c}</button>
-                  ))}
+                <p className="text-[9px] font-black text-stone-900 mb-3 uppercase">Talla {seleccion.color && `en ${seleccion.color}`}</p>
+                <div className="flex flex-wrap gap-2">
+                  {productoSeleccionado.variantes
+                    .filter(v => v.color === seleccion.color)
+                    .map(v => (
+                      <button
+                        key={v.talla}
+                        disabled={v.stock <= 0}
+                        onClick={() => setSeleccion({ ...seleccion, talla: v.talla })}
+                        className={`w-10 h-10 rounded-xl border text-[10px] font-black transition-all ${v.stock <= 0 ? 'opacity-20 cursor-not-allowed' : ''} ${seleccion.talla === v.talla ? 'bg-stone-900 text-white' : 'bg-stone-50 border-stone-200'}`}>
+                        {v.talla}
+                      </button>
+                    ))}
+                </div>
+                {!seleccion.color && <p className="text-[8px] italic text-stone-400 mt-2">* Elige un color primero</p>}
+              </div>
+
+              {/* Cantidad */}
+              <div>
+                <p className="text-[9px] font-black text-stone-900 mb-3 uppercase">Cantidad</p>
+                <div className="flex items-center gap-4 bg-stone-100 p-2 rounded-2xl">
+                  <button onClick={() => setSeleccion(s => ({ ...s, cantidad: Math.max(1, s.cantidad - 1) }))} className="w-8 h-8 font-black">-</button>
+                  <span className="flex-1 text-center font-black text-sm">{seleccion.cantidad}</span>
+                  <button onClick={() => setSeleccion(s => ({ ...s, cantidad: Math.min(getStockDisponible(), s.cantidad + 1) }))} className="w-8 h-8 font-black">+</button>
                 </div>
               </div>
             </div>
-            <div className="mb-6">
-              <p className="text-[9px] font-bold text-stone-400 mb-2 uppercase">Cantidad</p>
-              <input
-                type="number"
-                min="1"
-                max={productoSeleccionado.stock}
-                value={seleccion.cantidad}
-                onChange={(e) => setSeleccion({ ...seleccion, cantidad: parseInt(e.target.value) || 1 })}
-                className="w-full p-3 bg-stone-50 rounded-xl text-center font-black"
-              />
-            </div>
-            <button onClick={agregarAlCarrito} disabled={!seleccion.talla || !seleccion.color} className="w-full py-4 bg-stone-900 text-white rounded-xl uppercase text-[10px] font-bold disabled:opacity-30">Agregar al carrito</button>
+
+            <button onClick={agregarAlCarrito} disabled={!seleccion.talla || !seleccion.color} className="w-full py-4 bg-stone-900 text-white rounded-2xl uppercase text-[11px] font-black shadow-lg hover:bg-emerald-600 transition-all disabled:opacity-20">
+              Agregar al carrito
+            </button>
           </div>
         </div>
       )}
 
       {/* HEADER */}
-      <header className={`fixed top-0 w-full z-40 bg-[#f3f2ed]/80 backdrop-blur-md transition-all ${scrolled ? 'py-4' : 'py-10'}`}>
-        <div className="text-center"><h1 className={`font-black uppercase ${scrolled ? 'text-2xl' : 'text-5xl'}`}>BASIQO</h1></div>
+      <header className={`fixed top-0 w-full z-40 bg-[#F9F9F7]/80 backdrop-blur-xl transition-all duration-500 border-b border-stone-100 ${scrolled ? 'py-4' : 'py-8'}`}>
+        <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+          <h1 className={`font-black italic tracking-tighter uppercase transition-all ${scrolled ? 'text-xl' : 'text-3xl'}`}>BASIQO</h1>
+          <nav className="hidden md:flex gap-8 text-[10px] font-black uppercase tracking-widest">
+            <a href="#" className="hover:text-emerald-600">Esenciales</a>
+            <a href="#" className="hover:text-emerald-600">Colecciones</a>
+          </nav>
+        </div>
       </header>
 
       {/* GRID PRODUCTOS */}
       <main className="p-6 md:p-12 max-w-7xl mx-auto mt-32">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-          {productos.map(p => (
-            <div key={p._id} className="group flex flex-col bg-white p-3 rounded-3xl border border-stone-100 shadow-sm transition-all hover:shadow-2xl">
-              <div className="aspect-[3/4] bg-stone-100 rounded-2xl overflow-hidden mb-5 relative">
-                <img src={p.foto} alt={p.nombre} className={`w-full h-full object-cover ${p.stock <= 0 ? 'grayscale opacity-60' : ''}`} />
-                {p.stock <= 0 && <div className="absolute inset-0 flex items-center justify-center font-black uppercase text-xs">Agotado</div>}
-              </div>
-              <div className="px-2 pb-2">
-                <h2 className="text-[15px] font-black uppercase tracking-tight text-stone-900 mb-1">{p.nombre}</h2>
-                <p className="text-[13px] font-bold text-stone-500 mb-4 tracking-wider">$ {p.precio}</p>
-
-                <div className="flex flex-col gap-2 mb-4">
-                  {p.tallas && (
-                    <div className="flex gap-1 flex-wrap">
-                      {p.tallas.map(talla => <span key={talla} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{talla}</span>)}
-                      {p.colores.map(color => <span key={color} className="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded font-black text-stone-500 uppercase">{color}</span>)}
-                    </div>
-                  )}
-                  <div className="mt-1">
-                    <span className={`text-[9px] font-bold uppercase px-2 py-1 rounded ${p.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                      {p.stock > 0 ? `${p.stock} unidades disponibles` : 'Producto agotado'}
-                    </span>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
+          {productos.map(p => {
+            const totalStock = p.variantes.reduce((acc, v) => acc + v.stock, 0);
+            return (
+              <div key={p._id} className="group cursor-pointer" onClick={() => totalStock > 0 && setProductoSeleccionado(p)}>
+                <div className="aspect-[3/4] bg-stone-200 rounded-[32px] overflow-hidden mb-4 relative shadow-sm transition-transform duration-700 hover:scale-[1.02]">
+                  <img src={p.foto[0]} alt={p.nombre} className={`w-full h-full object-cover ${totalStock <= 0 ? 'grayscale opacity-40' : ''}`} />
+                  {totalStock <= 0 && <div className="absolute inset-0 flex items-center justify-center font-black uppercase text-[10px] bg-stone-900/20 backdrop-blur-sm text-white">Sold Out</div>}
+                </div>
+                <div className="px-1">
+                  <h2 className="text-[12px] font-black uppercase tracking-tight text-stone-900 mb-1">{p.nombre}</h2>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[11px] font-bold text-stone-400 italic">$ {parseFloat(p.precio).toLocaleString()}</p>
+                    <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Novedad</span>
                   </div>
                 </div>
-                <button onClick={() => setProductoSeleccionado(p)} disabled={p.stock <= 0} className="w-full py-4 bg-stone-900 text-white text-[11px] font-black uppercase rounded-2xl hover:bg-emerald-600 transition-all">Seleccionar</button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </main>
 
       {/* CARRITO FLOTANTE */}
       {carrito.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 bg-white p-6 rounded-3xl shadow-2xl border border-stone-100">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="font-black text-xs uppercase">Tu pedido ({carrito.length})</h4>
-            <button onClick={() => setCarrito([])} className="text-[9px] text-red-500 font-bold uppercase">Limpiar todo</button>
+        <div className="fixed bottom-8 right-8 z-50 w-full max-w-[340px] bg-white p-8 rounded-[32px] shadow-2xl border border-stone-100 animate-in slide-in-from-bottom-5">
+          <div className="flex justify-between items-center mb-6">
+            <h4 className="font-black text-[11px] uppercase tracking-widest italic">Tu Selección ({carrito.reduce((a, b) => a + b.cantidad, 0)})</h4>
+            <button onClick={() => setCarrito([])} className="text-[9px] text-stone-300 hover:text-red-500 font-bold uppercase transition-colors">Vaciar</button>
           </div>
 
-          <div className="space-y-3 mb-6 max-h-40 overflow-y-auto pr-2">
+          <div className="space-y-4 mb-8 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
             {carrito.map((item, index) => (
-              <div key={index} className="flex justify-between items-center text-[10px] border-b border-stone-50 pb-2">
-                <div>
-                  <p className="font-black uppercase">{item.nombre}</p>
-                  <p className="text-stone-400">{item.talla} / {item.color}</p>
+              <div key={index} className="flex justify-between items-start text-[10px] group">
+                <div className="flex gap-3">
+                  <span className="font-black text-emerald-600">{item.cantidad}x</span>
+                  <div>
+                    <p className="font-black uppercase text-stone-900">{item.nombre}</p>
+                    <p className="text-stone-400 font-bold">{item.color} / {item.talla}</p>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setCarrito(carrito.filter((_, i) => i !== index))}
-                  className="text-stone-300 hover:text-red-500 font-bold px-2"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setCarrito(carrito.filter((_, i) => i !== index))} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 font-bold px-2 transition-all">✕</button>
               </div>
             ))}
           </div>
 
-          <input
-            type="text"
-            placeholder="Dirección de entrega..."
-            className="w-full p-3 mb-4 bg-stone-50 rounded-xl text-[10px]"
-            value={direccionFinal}
-            onChange={(e) => setDireccionFinal(e.target.value)}
-          />
-
-          <button
-            disabled={!direccionFinal}
-            onClick={confirmarPedidoYEnviar}
-            className="w-full py-4 bg-emerald-600 text-white rounded-xl uppercase text-[10px] font-bold disabled:opacity-30"
-          >
-            Confirmar y Enviar Pedido
-          </button>
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Dirección exacta en Ecuador..."
+              className="w-full p-4 bg-stone-100 rounded-2xl text-[11px] font-bold border-none focus:ring-2 focus:ring-stone-900"
+              value={direccionFinal}
+              onChange={(e) => setDireccionFinal(e.target.value)}
+            />
+            <button
+              disabled={!direccionFinal}
+              onClick={confirmarPedidoYEnviar}
+              className="w-full py-5 bg-stone-900 text-white rounded-[20px] uppercase text-[10px] font-black tracking-widest shadow-xl hover:bg-emerald-600 transition-all disabled:opacity-20"
+            >
+              Confirmar Pedido ($ {carrito.reduce((acc, p) => acc + (p.precio * p.cantidad), 0).toLocaleString()})
+            </button>
+          </div>
         </div>
       )}
     </div>
