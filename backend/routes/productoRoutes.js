@@ -100,4 +100,47 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+router.put('/:id', upload.array('foto'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, precio, descripcion, variantes } = req.body;
+
+        // 1. Buscamos el producto actual
+        let producto = await Producto.findById(id);
+
+        if (!producto) {
+            return res.status(404).json({ mensaje: "Producto no encontrado" });
+        }
+
+        // 2. Preparamos los datos básicos
+        const datosActualizados = {
+            nombre,
+            precio,
+            descripcion,
+            // Parseamos las variantes ya que vienen como string desde FormData
+            variantes: typeof variantes === 'string' ? JSON.parse(variantes) : variantes
+        };
+
+        // 3. Si el usuario subió fotos nuevas, las actualizamos
+        if (req.files && req.files.length > 0) {
+            const nuevasFotos = req.files.map(file => file.path);
+            datosActualizados.foto = nuevasFotos;
+        }
+
+        // 4. Ejecutamos la actualización en la BD
+        const productoEditado = await Producto.findByIdAndUpdate(
+            id,
+            datosActualizados,
+            { new: true } // Para que retorne el producto ya editado
+        );
+
+        res.json(productoEditado);
+        console.log(`✅ Producto ${nombre} actualizado correctamente`);
+
+    } catch (error) {
+        console.error("❌ Error al editar producto:", error);
+        res.status(500).json({ mensaje: "Error interno del servidor", error: error.message });
+    }
+});
+
 module.exports = router;

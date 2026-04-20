@@ -79,31 +79,45 @@ function Admin({ setAutenticado }) {
 
   const guardarProducto = async (e) => {
     e.preventDefault();
-    if (variantes.length === 0) return toast.error("Selecciona al menos un color y una talla");
-
     setCargando(true);
+
+    // 1. Creamos el FormData (necesario para enviar archivos/fotos)
     const formData = new FormData();
     formData.append('nombre', nuevo.nombre);
     formData.append('precio', nuevo.precio);
-    formData.append('descripcion', nuevo.descripcion);
-    formData.append('variantes', JSON.stringify(variantes)); // Enviamos el stock detallado
+    formData.append('descripcion', nuevo.descripcion || '');
 
-    if (imagen) {
+    // IMPORTANTE: Las variantes se envían como String para que Multer las reciba bien
+    formData.append('variantes', JSON.stringify(variantes));
+
+    // 2. Manejo de imágenes (Solo si se seleccionaron archivos nuevos)
+    if (imagen && imagen.length > 0) {
       for (let i = 0; i < imagen.length; i++) {
-        formData.append('foto', imagen[i]);
+        formData.append('foto', imagen[i]); // El nombre 'foto' debe coincidir con el backend
       }
     }
 
     try {
-      if (editandoId) await axios.put(`${API_URL}/api/productos/${editandoId}`, formData);
-      else await axios.post(`${API_URL}/api/productos`, formData);
+      if (editandoId) {
+        // --- ESTE ES EL LLAMADO PUT QUE TE FALTABA ---
+        await axios.put(`${API_URL}/api/productos/${editandoId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        toast.success('Prenda actualizada en BASIQO');
+      } else {
+        // --- LLAMADO POST PARA PRODUCTO NUEVO ---
+        await axios.post(`${API_URL}/api/productos`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        toast.success('Nueva prenda publicada');
+      }
 
-      toast.success('Basiqo actualizado');
-      fetchProductos();
+      fetchProductos(); // Recargar la lista
       setModalAbierto(false);
       limpiarFormulario();
     } catch (err) {
-      toast.error('Error al guardar');
+      console.error("Error en la petición:", err.response?.data || err.message);
+      toast.error('No se pudo guardar la información');
     } finally {
       setCargando(false);
     }
