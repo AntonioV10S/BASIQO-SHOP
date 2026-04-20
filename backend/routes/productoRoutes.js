@@ -43,25 +43,25 @@ router.get('/', async (req, res) => {
 
 // --- POST: CREAR ---
 router.post('/', upload.array('foto', 5), async (req, res) => {
-    try {
-        const { nombre, precio, stock } = req.body;
-        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
+  try {
+    const { nombre, precio, stock } = req.body;
 
-        // Validación de seguridad para JSON.parse
-        const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
+    const rutasFotos = req.files ? req.files.map(f => f.path) : [];
 
-const producto = new Producto({
-  nombre,
-  precio,
-  stock: parseData(stock),
-  foto: rutasFotos
-});
+    const producto = new Producto({
+      nombre,
+      precio,
+      stock: typeof stock === 'string' ? JSON.parse(stock) : stock,
+      foto: rutasFotos
+    });
 
-        await producto.save();
-        res.status(201).json(producto);
-    } catch (error) {
-        res.status(400).json({ error: "Error al crear producto: " + error.message });
-    }
+    await producto.save();
+    res.status(201).json(producto);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // --- PUT: ACTUALIZAR ---
