@@ -173,7 +173,7 @@ function Catalogo() {
       <main className="p-6 md:p-12 max-w-7xl mx-auto mt-32">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
           {productos.map(p => {
-            const totalStock = p.variantes.reduce((acc, v) => acc + v.stock, 0);
+            const totalStock = (p.variantes || []).reduce((acc, v) => acc + (v.stock || 0), 0);
             return (
               <div key={p._id} className="group cursor-pointer" onClick={() => totalStock > 0 && setProductoSeleccionado(p)}>
                 <div className="aspect-[3/4] bg-stone-200 rounded-[32px] overflow-hidden mb-4 relative shadow-sm transition-transform duration-700 hover:scale-[1.02]">
