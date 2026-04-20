@@ -44,20 +44,18 @@ router.get('/', async (req, res) => {
 // --- POST: CREAR ---
 router.post('/', upload.array('foto', 5), async (req, res) => {
     try {
-        const { nombre, precio, stock, colores, tallas } = req.body;
+        const { nombre, precio, stock } = req.body;
         const rutasFotos = req.files ? req.files.map(file => file.path) : [];
 
         // Validación de seguridad para JSON.parse
         const parseData = (data) => (typeof data === 'string' ? JSON.parse(data) : data);
 
-        const producto = new Producto({
-            nombre,
-            precio,
-            stock: Number(stock),
-            colores: parseData(colores),
-            tallas: parseData(tallas),
-            foto: rutasFotos
-        });
+const producto = new Producto({
+  nombre,
+  precio,
+  stock: parseData(stock),
+  foto: rutasFotos
+});
 
         await producto.save();
         res.status(201).json(producto);
