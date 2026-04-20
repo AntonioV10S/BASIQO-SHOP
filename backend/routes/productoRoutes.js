@@ -35,26 +35,34 @@ router.get('/', async (req, res) => {
 });
 
 // --- CREAR PRODUCTO ---
-router.post('/', upload.array('foto', 5), async (req, res) => {
+router.post('/', upload.array('foto'), async (req, res) => {
     try {
-        const { nombre, precio, descripcion, variantes } = req.body;
-        const rutasFotos = req.files ? req.files.map(file => file.path) : [];
+        console.log("Cuerpo recibido:", req.body); // Para ver qué llega en los logs de Render
 
-        // Convertimos el string de variantes (del FormData) a un Objeto JS
-        const variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
+        const { nombre, precio, descripcion, variantes } = req.body;
+
+        // VALIDACIÓN DE VARIANTES
+        let variantesParsed = [];
+        try {
+            variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
+        } catch (e) {
+            console.error("Error parseando variantes:", e);
+            return res.status(400).json({ mensaje: "Formato de variantes inválido" });
+        }
 
         const nuevoProducto = new Producto({
             nombre,
             precio,
             descripcion,
-            foto: rutasFotos,
-            variantes: variantesParsed
+            variantes: variantesParsed,
+            foto: req.files ? req.files.map(f => f.path) : []
         });
 
         await nuevoProducto.save();
         res.status(201).json(nuevoProducto);
     } catch (error) {
-        res.status(400).json({ error: "Error al crear: " + error.message });
+        console.error("Error en POST:", error);
+        res.status(500).send("Error del servidor: " + error.message);
     }
 });
 
@@ -103,14 +111,17 @@ router.delete('/:id', async (req, res) => {
 router.put('/:id', upload.array('foto'), async (req, res) => {
     try {
         const { id } = req.params;
-        let { nombre, precio, descripcion, variantes } = req.body;
+        const { nombre, precio, descripcion, variantes } = req.body;
 
-        // SEGURO: Si variantes llega como string, parsear. Si falla, usar array vacío.
-        let variantesParsed;
+        let producto = await Producto.findById(id);
+        if (!producto) return res.status(404).json({ mensaje: "No existe" });
+
+        // PARSEO SEGURO
+        let variantesParsed = [];
         try {
             variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
         } catch (e) {
-            variantesParsed = [];
+            variantesParsed = producto.variantes; // Si falla, dejamos las que estaban
         }
 
         const updateData = {
@@ -120,19 +131,16 @@ router.put('/:id', upload.array('foto'), async (req, res) => {
             variantes: variantesParsed
         };
 
-        // Solo actualiza la foto si Multer subió archivos nuevos
+        // Solo actualizar fotos si se subieron nuevas
         if (req.files && req.files.length > 0) {
             updateData.foto = req.files.map(f => f.path);
         }
 
-        const producto = await Producto.findByIdAndUpdate(id, updateData, { new: true });
-
-        if (!producto) return res.status(404).send("No existe el producto");
-
-        res.json(producto);
+        const editado = await Producto.findByIdAndUpdate(id, updateData, { new: true });
+        res.json(editado);
     } catch (error) {
-        console.error(error);
-        res.status(500).send("Error interno: " + error.message);
+        console.error("Error en PUT:", error);
+        res.status(500).send("Error del servidor: " + error.message);
     }
 });
 
