@@ -81,43 +81,47 @@ function Admin({ setAutenticado }) {
     e.preventDefault();
     setCargando(true);
 
-    // 1. Creamos el FormData (necesario para enviar archivos/fotos)
-    const formData = new FormData();
-    formData.append('nombre', nuevo.nombre);
-    formData.append('precio', nuevo.precio);
-    formData.append('descripcion', nuevo.descripcion || '');
-
-    // IMPORTANTE: Las variantes se envían como String para que Multer las reciba bien
-    formData.append('variantes', JSON.stringify(variantes));
-
-    // 2. Manejo de imágenes (Solo si se seleccionaron archivos nuevos)
-    if (imagen && imagen.length > 0) {
-      for (let i = 0; i < imagen.length; i++) {
-        formData.append('foto', imagen[i]); // El nombre 'foto' debe coincidir con el backend
-      }
-    }
-
     try {
-      if (editandoId) {
-        // --- ESTE ES EL LLAMADO PUT QUE TE FALTABA ---
-        await axios.put(`${API_URL}/api/productos/${editandoId}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        toast.success('Prenda actualizada en BASIQO');
-      } else {
-        // --- LLAMADO POST PARA PRODUCTO NUEVO ---
-        await axios.post(`${API_URL}/api/productos`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        toast.success('Nueva prenda publicada');
+      const formData = new FormData();
+      formData.append('nombre', nuevo.nombre);
+      formData.append('precio', nuevo.precio);
+      formData.append('descripcion', nuevo.descripcion || '');
+
+      // 1. IMPORTANTE: Asegurarnos de que las variantes sean un string JSON válido
+      // Si variantes es undefined o null, enviamos un array vacío stringificado
+      const variantesParaEnviar = variantes && variantes.length > 0 ? variantes : [];
+      formData.append('variantes', JSON.stringify(variantesParaEnviar));
+
+      // 2. Manejo de fotos
+      // Si no hay imagen nueva, Multer no recibirá nada, por eso el backend debe ser flexible
+      if (imagen && imagen.length > 0) {
+        for (let i = 0; i < imagen.length; i++) {
+          formData.append('foto', imagen[i]);
+        }
       }
 
-      fetchProductos(); // Recargar la lista
+      const config = {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      };
+
+      if (editandoId) {
+        // LLAMADA PUT
+        const res = await axios.put(`${API_URL}/api/productos/${editandoId}`, formData, config);
+        console.log("Respuesta servidor:", res.data);
+        toast.success('Cambios guardados');
+      } else {
+        // LLAMADA POST
+        await axios.post(`${API_URL}/api/productos`, formData, config);
+        toast.success('Producto creado');
+      }
+
+      fetchProductos();
       setModalAbierto(false);
       limpiarFormulario();
     } catch (err) {
-      console.error("Error en la petición:", err.response?.data || err.message);
-      toast.error('No se pudo guardar la información');
+      // Si el error es 500, aquí verás el HTML de error en la consola
+      console.error("Detalle del error:", err.response?.data || err.message);
+      toast.error('Error interno del servidor (500)');
     } finally {
       setCargando(false);
     }

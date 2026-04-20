@@ -103,43 +103,36 @@ router.delete('/:id', async (req, res) => {
 router.put('/:id', upload.array('foto'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre, precio, descripcion, variantes } = req.body;
+        let { nombre, precio, descripcion, variantes } = req.body;
 
-        // 1. Buscamos el producto actual
-        let producto = await Producto.findById(id);
-
-        if (!producto) {
-            return res.status(404).json({ mensaje: "Producto no encontrado" });
+        // SEGURO: Si variantes llega como string, parsear. Si falla, usar array vacío.
+        let variantesParsed;
+        try {
+            variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
+        } catch (e) {
+            variantesParsed = [];
         }
 
-        // 2. Preparamos los datos básicos
-        const datosActualizados = {
+        const updateData = {
             nombre,
             precio,
             descripcion,
-            // Parseamos las variantes ya que vienen como string desde FormData
-            variantes: typeof variantes === 'string' ? JSON.parse(variantes) : variantes
+            variantes: variantesParsed
         };
 
-        // 3. Si el usuario subió fotos nuevas, las actualizamos
+        // Solo actualiza la foto si Multer subió archivos nuevos
         if (req.files && req.files.length > 0) {
-            const nuevasFotos = req.files.map(file => file.path);
-            datosActualizados.foto = nuevasFotos;
+            updateData.foto = req.files.map(f => f.path);
         }
 
-        // 4. Ejecutamos la actualización en la BD
-        const productoEditado = await Producto.findByIdAndUpdate(
-            id,
-            datosActualizados,
-            { new: true } // Para que retorne el producto ya editado
-        );
+        const producto = await Producto.findByIdAndUpdate(id, updateData, { new: true });
 
-        res.json(productoEditado);
-        console.log(`✅ Producto ${nombre} actualizado correctamente`);
+        if (!producto) return res.status(404).send("No existe el producto");
 
+        res.json(producto);
     } catch (error) {
-        console.error("❌ Error al editar producto:", error);
-        res.status(500).json({ mensaje: "Error interno del servidor", error: error.message });
+        console.error(error);
+        res.status(500).send("Error interno: " + error.message);
     }
 });
 
