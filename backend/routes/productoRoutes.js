@@ -35,35 +35,40 @@ router.get('/', async (req, res) => {
 });
 
 // --- CREAR PRODUCTO ---
-router.post('/', upload.array('foto'), async (req, res) => {
-    try {
-        console.log("Cuerpo recibido:", req.body); // Para ver qué llega en los logs de Render
-
-        const { nombre, precio, descripcion, variantes } = req.body;
-
-        // VALIDACIÓN DE VARIANTES
-        let variantesParsed = [];
-        try {
-            variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
-        } catch (e) {
-            console.error("Error parseando variantes:", e);
-            return res.status(400).json({ mensaje: "Formato de variantes inválido" });
+// --- CREAR PRODUCTO CON BLINDAJE ---
+router.post('/', (req, res) => {
+    upload.array('foto')(req, res, async (err) => {
+        // Si Multer falla (por ejemplo, archivo muy pesado o error de Cloudinary)
+        if (err) {
+            console.error("❌ Error de Multer/Cloudinary:", err);
+            return res.status(500).json({ mensaje: "Error al subir imagen", detalle: err.message });
         }
 
-        const nuevoProducto = new Producto({
-            nombre,
-            precio,
-            descripcion,
-            variantes: variantesParsed,
-            foto: req.files ? req.files.map(f => f.path) : []
-        });
+        try {
+            const { nombre, precio, descripcion, variantes } = req.body;
 
-        await nuevoProducto.save();
-        res.status(201).json(nuevoProducto);
-    } catch (error) {
-        console.error("Error en POST:", error);
-        res.status(500).send("Error del servidor: " + error.message);
-    }
+            let variantesParsed = [];
+            if (variantes) {
+                variantesParsed = typeof variantes === 'string' ? JSON.parse(variantes) : variantes;
+            }
+
+            const nuevoProducto = new Producto({
+                nombre,
+                precio,
+                descripcion,
+                variantes: variantesParsed,
+                // Verificamos que req.files exista y tenga datos
+                foto: req.files ? req.files.map(f => f.path) : []
+            });
+
+            await nuevoProducto.save();
+            res.status(201).json(nuevoProducto);
+            console.log("✅ Producto guardado exitosamente");
+        } catch (error) {
+            console.error("❌ Error en la lógica de guardado:", error);
+            res.status(500).json({ mensaje: "Error interno", error: error.message });
+        }
+    });
 });
 
 // --- CONFIRMAR PEDIDO (Con descuento de stock real) ---

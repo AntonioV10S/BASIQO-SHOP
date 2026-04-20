@@ -87,13 +87,9 @@ function Admin({ setAutenticado }) {
       formData.append('precio', nuevo.precio);
       formData.append('descripcion', nuevo.descripcion || '');
 
-      // 1. IMPORTANTE: Asegurarnos de que las variantes sean un string JSON válido
-      // Si variantes es undefined o null, enviamos un array vacío stringificado
       const variantesParaEnviar = variantes && variantes.length > 0 ? variantes : [];
       formData.append('variantes', JSON.stringify(variantesParaEnviar));
 
-      // 2. Manejo de fotos
-      // Si no hay imagen nueva, Multer no recibirá nada, por eso el backend debe ser flexible
       if (imagen && imagen.length > 0) {
         for (let i = 0; i < imagen.length; i++) {
           formData.append('foto', imagen[i]);
@@ -119,7 +115,7 @@ function Admin({ setAutenticado }) {
       setModalAbierto(false);
       limpiarFormulario();
     } catch (err) {
-      // Si el error es 500, aquí verás el HTML de error en la consola
+
       console.error("Detalle del error:", err.response?.data || err.message);
       toast.error('Error interno del servidor (500)');
     } finally {
