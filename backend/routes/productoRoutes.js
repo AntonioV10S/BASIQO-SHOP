@@ -7,9 +7,9 @@ const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 
 cloudinary.config({
-    cloud_name: 'dmzmhugvd',
-    api_key: '962417948158365',
-    api_secret: '7fMzOw_p3cjJCTFOCcxv_Wcby_g'
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET
 });
 
 const storage = new CloudinaryStorage({
@@ -22,11 +22,20 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// --- RUTA PRINCIPAL (LISTAR) ---
 router.get('/', async (req, res) => {
     try {
-        const productos = await Producto.find();
-        res.json(productos);
+        const productos = await Producto.find()
+            .select('nombre precio foto stock tallas colores')
+            .lean();
+
+        const productosOptimizados = productos.map(p => ({
+            ...p,
+            foto: p.foto && p.foto.length > 0
+                ? p.foto[0].replace('/upload/', '/upload/w_500,q_auto,f_auto/')
+                : null
+        }));
+
+        res.json(productosOptimizados);
     } catch (error) {
         res.status(500).json({ error: "Error al obtener productos: " + error.message });
     }
