@@ -131,17 +131,27 @@ function Admin({ setAutenticado }) {
 
       <header className="max-w-7xl mx-auto mb-12 flex flex-col md:flex-row justify-between items-end border-b border-stone-200 pb-8 gap-6">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Basiqo <span className="text-stone-400 not-italic font-light">Inventory</span></h1>
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-2">Gestión de Stock por Variantes</p>
+          <h1 className="text-4xl font-black tracking-tighter uppercase italic">
+            Basiqo <span className="text-stone-400 not-italic font-light">Inventory</span>
+          </h1>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-2">
+            Gestión de Stock por Variantes
+          </p>
         </div>
+
         <div className="flex gap-3">
+          {/* BOTÓN PARA IR A REPORTES */}
           <button
-            onClick={() => navigate('/admin/Reportes')}
-            className="px-8 py-4 border border-stone-900 text-stone-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-50 transition-all"
+            onClick={() => navigate('/reportes')} // O '/admin/reportes' según tu App.js
+            className="px-8 py-4 border border-stone-200 text-stone-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white hover:border-stone-900 transition-all shadow-sm"
           >
-            Ver Reportes
+            Ver Analítica
           </button>
-          <button onClick={() => { limpiarFormulario(); setModalAbierto(true); }} className="px-8 py-4 bg-stone-900 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg">
+
+          <button
+            onClick={() => { limpiarFormulario(); setModalAbierto(true); }}
+            className="px-8 py-4 bg-stone-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg"
+          >
             + Nuevo Ingreso
           </button>
         </div>
