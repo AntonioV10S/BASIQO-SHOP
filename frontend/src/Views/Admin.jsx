@@ -136,7 +136,7 @@ function Admin({ setAutenticado }) {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => navigate('/admin/reportes')}
+            onClick={() => navigate('/admin/Reportes')}
             className="px-8 py-4 border border-stone-900 text-stone-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-50 transition-all"
           >
             Ver Reportes
