@@ -82,7 +82,7 @@ router.post('/confirmar-pedido', async (req, res) => {
         for (const item of productos) {
             const result = await Producto.updateOne(
                 {
-                    _id: item.productoId,
+                    _id: item.id,
                     "variantes.color": item.color,
                     "variantes.talla": item.talla,
                     "variantes.stock": { $gte: item.cantidad } // Solo si hay stock suficiente
