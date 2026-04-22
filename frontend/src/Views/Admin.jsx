@@ -135,6 +135,12 @@ function Admin({ setAutenticado }) {
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400 mt-2">Gestión de Stock por Variantes</p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => navigate('/admin/reportes')}
+            className="px-8 py-4 border border-stone-900 text-stone-900 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-stone-50 transition-all"
+          >
+            Ver Reportes
+          </button>
           <button onClick={() => { limpiarFormulario(); setModalAbierto(true); }} className="px-8 py-4 bg-stone-900 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg">
             + Nuevo Ingreso
           </button>
