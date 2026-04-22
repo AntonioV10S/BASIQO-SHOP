@@ -149,4 +149,37 @@ router.put('/:id', upload.array('foto'), async (req, res) => {
     }
 });
 
+// --- RUTA PARA ESTADÍSTICAS (KPIs) ---
+router.get('/reportes', async (req, res) => {
+    try {
+        const pedidos = await Pedido.find();
+
+        const totalVentas = pedidos.reduce((acc, p) => acc + p.total, 0);
+        const totalPedidos = pedidos.length;
+
+        // Cálculo de productos más vendidos (opcional por ahora)
+        // Puedes dejarlo como array vacío si no quieres complicarte
+        const topProductos = [];
+
+        res.json({
+            totalVentas,
+            totalPedidos,
+            topProductos
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- RUTA PARA EL HISTORIAL DE TRANSACCIONES ---
+router.get('/historial', async (req, res) => {
+    try {
+        // Trae los pedidos ordenados del más nuevo al más viejo
+        const historial = await Pedido.find().sort({ fecha: -1 });
+        res.json(historial);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
